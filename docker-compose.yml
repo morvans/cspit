@@ -10,9 +10,10 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=mongodb://mongo:27017/csp-reporter
+      - DATABASE_URL=mongodb://mongo:27017/csp-reporter?replicaSet=rs0
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     command: sh -c "npm install && npm run dev"
 
   mongo:
@@ -23,6 +24,19 @@ services:
       - mongo_data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=csp-reporter
+    command: >
+      bash -c "
+        mongod --replSet rs0 --bind_ip_all &
+        sleep 10 &&
+        mongosh --eval 'rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"mongo:27017\"}]})' &&
+        wait
+      "
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   mongo_data:

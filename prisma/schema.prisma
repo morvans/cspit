@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model CspReport {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  documentUri           String
+  referrer              String?
+  violatedDirective     String
+  effectiveDirective    String
+  originalPolicy        String
+  disposition           String
+  blockedUri            String?
+  lineNumber            Int?
+  columnNumber          Int?
+  sourceFile            String?
+  statusCode            Int?
+  scriptSample          String?
+  userAgent             String?
+  timestamp             DateTime @default(now())
+  
+  @@map("csp_reports")
+}

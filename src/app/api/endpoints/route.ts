@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { requireAuth } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
 export async function GET() {
   try {
+    // Require authentication
+    const session = await requireAuth();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const endpoints = await prisma.endpoint.findMany({
       select: {
         id: true,
@@ -32,6 +42,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const session = await requireAuth();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { name } = await request.json();
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -80,6 +99,15 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Require authentication
+    const session = await requireAuth();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const endpointId = searchParams.get('id');
 

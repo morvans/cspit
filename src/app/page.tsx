@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -50,6 +52,8 @@ interface Endpoint {
 }
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [reports, setReports] = useState<CspReport[]>([]);
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
@@ -61,6 +65,37 @@ export default function Home() {
   const [newEndpointName, setNewEndpointName] = useState('');
   const [isCreatingEndpoint, setIsCreatingEndpoint] = useState(false);
   const [endpointError, setEndpointError] = useState<string | null>(null);
+
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (status === 'loading') return; // Still loading
+    if (!session) {
+      router.push('/auth/signin');
+      return;
+    }
+  }, [session, status, router]);
+
+  // Show loading while session is being checked
+  if (status === 'loading') {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Checking authentication...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while redirecting
+  if (!session) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Redirecting to sign-in...</div>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     fetchEndpoints();
@@ -210,12 +245,35 @@ export default function Home() {
             Monitor and analyze Content Security Policy violations
           </p>
         </div>
-        <button
-          onClick={() => setShowEndpointManager(!showEndpointManager)}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-        >
-          {showEndpointManager ? 'Hide' : 'Manage'} Endpoints
-        </button>
+        <div className="flex items-center gap-4">
+          {session?.user && (
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-sm font-medium">{session.user.name}</p>
+                <p className="text-xs text-muted-foreground">{session.user.email}</p>
+              </div>
+              {session.user.image && (
+                <img
+                  src={session.user.image}
+                  alt={session.user.name || 'User'}
+                  className="w-8 h-8 rounded-full"
+                />
+              )}
+              <button
+                onClick={() => signOut()}
+                className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setShowEndpointManager(!showEndpointManager)}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+          >
+            {showEndpointManager ? 'Hide' : 'Manage'} Endpoints
+          </button>
+        </div>
       </div>
 
       {showEndpointManager && (

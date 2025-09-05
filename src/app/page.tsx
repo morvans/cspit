@@ -57,6 +57,10 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<CspReport | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showEndpointManager, setShowEndpointManager] = useState(false);
+  const [newEndpointName, setNewEndpointName] = useState('');
+  const [isCreatingEndpoint, setIsCreatingEndpoint] = useState(false);
+  const [endpointError, setEndpointError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEndpoints();
@@ -116,6 +120,65 @@ export default function Home() {
     setSelectedReport(null);
   };
 
+  const createEndpoint = async () => {
+    if (!newEndpointName.trim()) {
+      setEndpointError('Endpoint name is required');
+      return;
+    }
+
+    setIsCreatingEndpoint(true);
+    setEndpointError(null);
+
+    try {
+      const response = await fetch('/api/endpoints', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: newEndpointName.trim() }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create endpoint');
+      }
+
+      setNewEndpointName('');
+      await fetchEndpoints();
+    } catch (err) {
+      setEndpointError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsCreatingEndpoint(false);
+    }
+  };
+
+  const deleteEndpoint = async (endpointId: string, endpointName: string) => {
+    if (!confirm(`Are you sure you want to delete the endpoint "${endpointName}"? This will also delete all associated reports.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/endpoints?id=${endpointId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete endpoint');
+      }
+
+      // If the deleted endpoint was selected, clear the selection
+      if (selectedEndpoint === endpointName) {
+        setSelectedEndpoint('');
+      }
+
+      await fetchEndpoints();
+      await fetchReports();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'An error occurred');
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -140,12 +203,104 @@ export default function Home() {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">CSP Violation Reports</h1>
-        <p className="text-muted-foreground mt-2">
-          Monitor and analyze Content Security Policy violations
-        </p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">CSP Violation Reports</h1>
+          <p className="text-muted-foreground mt-2">
+            Monitor and analyze Content Security Policy violations
+          </p>
+        </div>
+        <button
+          onClick={() => setShowEndpointManager(!showEndpointManager)}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+        >
+          {showEndpointManager ? 'Hide' : 'Manage'} Endpoints
+        </button>
       </div>
+
+      {showEndpointManager && (
+        <div className="mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Endpoint Management</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Create and manage CSP reporting endpoints. Each endpoint gets its own unique API path.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Create New Endpoint */}
+              <div>
+                <h3 className="font-semibold mb-3">Create New Endpoint</h3>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="Enter endpoint name (e.g., my-app, frontend, api)"
+                      value={newEndpointName}
+                      onChange={(e) => setNewEndpointName(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && createEndpoint()}
+                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      disabled={isCreatingEndpoint}
+                    />
+                    {endpointError && (
+                      <p className="text-sm text-red-600 mt-1">{endpointError}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={createEndpoint}
+                    disabled={isCreatingEndpoint || !newEndpointName.trim()}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isCreatingEndpoint ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+                {newEndpointName.trim() && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    API URL: <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                      POST /api/report/{newEndpointName.trim()}
+                    </code>
+                  </p>
+                )}
+              </div>
+
+              {/* Existing Endpoints */}
+              {endpoints.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3">Existing Endpoints</h3>
+                  <div className="space-y-2">
+                    {endpoints.map((endpoint) => (
+                      <div
+                        key={endpoint.id}
+                        className="flex items-center justify-between p-3 border rounded-md bg-card"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="font-mono">
+                              {endpoint.name}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {endpoint._count.reports} report{endpoint._count.reports !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            <code>POST /api/report/{endpoint.name}</code>
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => deleteEndpoint(endpoint.id, endpoint.name)}
+                          className="px-3 py-1 text-sm bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {endpoints.length > 0 && (
         <div className="mb-6">

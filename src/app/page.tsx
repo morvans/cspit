@@ -11,6 +11,12 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface CspReport {
   id: string;
@@ -34,6 +40,8 @@ export default function Home() {
   const [reports, setReports] = useState<CspReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedReport, setSelectedReport] = useState<CspReport | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchReports();
@@ -60,6 +68,16 @@ export default function Home() {
 
   const getDispositionColor = (disposition: string) => {
     return disposition === 'enforce' ? 'destructive' : 'secondary';
+  };
+
+  const handleRowClick = (report: CspReport) => {
+    setSelectedReport(report);
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setSelectedReport(null);
   };
 
   if (loading) {
@@ -127,6 +145,9 @@ export default function Home() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Violations</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Click on any row to view detailed report information
+          </p>
         </CardHeader>
         <CardContent>
           {reports.length === 0 ? (
@@ -146,7 +167,11 @@ export default function Home() {
               </TableHeader>
               <TableBody>
                 {reports.map((report) => (
-                  <TableRow key={report.id}>
+                  <TableRow 
+                    key={report.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleRowClick(report)}
+                  >
                     <TableCell className="font-mono text-sm">
                       {formatTimestamp(report.timestamp)}
                     </TableCell>
@@ -173,6 +198,137 @@ export default function Home() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>CSP Violation Report Details</DialogTitle>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-2">BASIC INFORMATION</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium">Timestamp</label>
+                      <p className="font-mono text-sm">{formatTimestamp(selectedReport.timestamp)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Disposition</label>
+                      <div className="mt-1">
+                        <Badge variant={getDispositionColor(selectedReport.disposition)}>
+                          {selectedReport.disposition}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Document URI</label>
+                      <p className="text-sm break-all">{selectedReport.documentUri}</p>
+                    </div>
+                    {selectedReport.referrer && (
+                      <div>
+                        <label className="text-sm font-medium">Referrer</label>
+                        <p className="text-sm break-all">{selectedReport.referrer}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-2">VIOLATION DETAILS</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium">Violated Directive</label>
+                      <code className="block bg-muted px-2 py-1 rounded text-sm mt-1">
+                        {selectedReport.violatedDirective}
+                      </code>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Effective Directive</label>
+                      <code className="block bg-muted px-2 py-1 rounded text-sm mt-1">
+                        {selectedReport.effectiveDirective}
+                      </code>
+                    </div>
+                    {selectedReport.blockedUri && (
+                      <div>
+                        <label className="text-sm font-medium">Blocked URI</label>
+                        <p className="text-sm break-all">{selectedReport.blockedUri}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-2">POLICY</h3>
+                <div>
+                  <label className="text-sm font-medium">Original Policy</label>
+                  <code className="block bg-muted px-3 py-2 rounded text-sm mt-1 whitespace-pre-wrap">
+                    {selectedReport.originalPolicy}
+                  </code>
+                </div>
+              </div>
+
+              {(selectedReport.sourceFile || selectedReport.lineNumber || selectedReport.columnNumber || selectedReport.scriptSample) && (
+                <div>
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-2">SOURCE INFORMATION</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {selectedReport.sourceFile && (
+                      <div>
+                        <label className="text-sm font-medium">Source File</label>
+                        <p className="text-sm break-all">{selectedReport.sourceFile}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-4">
+                      {selectedReport.lineNumber && (
+                        <div>
+                          <label className="text-sm font-medium">Line</label>
+                          <p className="text-sm">{selectedReport.lineNumber}</p>
+                        </div>
+                      )}
+                      {selectedReport.columnNumber && (
+                        <div>
+                          <label className="text-sm font-medium">Column</label>
+                          <p className="text-sm">{selectedReport.columnNumber}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {selectedReport.scriptSample && (
+                    <div className="mt-3">
+                      <label className="text-sm font-medium">Script Sample</label>
+                      <code className="block bg-muted px-3 py-2 rounded text-sm mt-1">
+                        {selectedReport.scriptSample}
+                      </code>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(selectedReport.statusCode || selectedReport.userAgent) && (
+                <div>
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-2">ADDITIONAL INFORMATION</h3>
+                  <div className="space-y-3">
+                    {selectedReport.statusCode && (
+                      <div>
+                        <label className="text-sm font-medium">Status Code</label>
+                        <p className="text-sm">{selectedReport.statusCode}</p>
+                      </div>
+                    )}
+                    {selectedReport.userAgent && (
+                      <div>
+                        <label className="text-sm font-medium">User Agent</label>
+                        <p className="text-sm break-all font-mono">{selectedReport.userAgent}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -14,6 +14,8 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+      mongo-setup:
+        condition: service_completed_successfully
     command: sh -c "npm install && npm run dev"
 
   mongo:
@@ -22,21 +24,24 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     environment:
       - MONGO_INITDB_DATABASE=csp-reporter
-    command: >
-      bash -c "
-        mongod --replSet rs0 --bind_ip_all &
-        sleep 10 &&
-        mongosh --eval 'rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"mongo:27017\"}]})' &&
-        wait
-      "
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  mongo-setup:
+    image: mongo:7
+    depends_on:
+      - mongo
+    volumes:
+      - ./mongo-setup.sh:/mongo-setup.sh
+    entrypoint: ["bash", "/mongo-setup.sh"]
 
 volumes:
   mongo_data:

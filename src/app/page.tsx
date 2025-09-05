@@ -33,6 +33,7 @@ interface CspReport {
   statusCode?: number;
   scriptSample?: string;
   userAgent?: string;
+  rawReport: string;
   timestamp: string;
 }
 
@@ -325,6 +326,16 @@ export default function Home() {
                   </div>
                 </div>
               )}
+
+              <div>
+                <h3 className="font-semibold text-sm text-muted-foreground mb-2">RAW REPORT (DEBUG)</h3>
+                <div>
+                  <label className="text-sm font-medium">Complete Raw CSP Report</label>
+                  <pre className="block bg-muted px-3 py-2 rounded text-xs mt-1 whitespace-pre-wrap overflow-x-auto max-h-60 border">
+                    {selectedReport.rawReport}
+                  </pre>
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>

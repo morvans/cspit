@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         statusCode: cspReport['status-code'] || undefined,
         scriptSample: cspReport['script-sample'] || undefined,
         userAgent,
+        rawReport: JSON.stringify(body, null, 2), // Store the complete raw request body
       },
     });
 

@@ -25,6 +25,7 @@ model CspReport {
   statusCode            Int?
   scriptSample          String?
   userAgent             String?
+  rawReport             String   // Store the complete raw CSP report for debugging
   timestamp             DateTime @default(now())
   
   @@map("csp_reports")

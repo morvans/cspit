@@ -35,22 +35,57 @@ interface CspReport {
   userAgent?: string;
   rawReport: string;
   timestamp: string;
+  endpoint: {
+    id: string;
+    name: string;
+  };
+}
+
+interface Endpoint {
+  id: string;
+  name: string;
+  _count: {
+    reports: number;
+  };
 }
 
 export default function Home() {
   const [reports, setReports] = useState<CspReport[]>([]);
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<CspReport | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
+    fetchEndpoints();
     fetchReports();
   }, []);
 
+  useEffect(() => {
+    fetchReports();
+  }, [selectedEndpoint]);
+
+  const fetchEndpoints = async () => {
+    try {
+      const response = await fetch('/api/endpoints');
+      if (!response.ok) {
+        throw new Error('Failed to fetch endpoints');
+      }
+      const data = await response.json();
+      setEndpoints(data);
+    } catch (err) {
+      console.error('Error fetching endpoints:', err);
+    }
+  };
+
   const fetchReports = async () => {
     try {
-      const response = await fetch('/api/reports');
+      const url = selectedEndpoint 
+        ? `/api/reports?endpoint=${encodeURIComponent(selectedEndpoint)}`
+        : '/api/reports';
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch reports');
       }
@@ -112,6 +147,43 @@ export default function Home() {
         </p>
       </div>
 
+      {endpoints.length > 0 && (
+        <div className="mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Filter by Endpoint</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedEndpoint('')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    selectedEndpoint === ''
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  All Endpoints ({endpoints.reduce((sum, e) => sum + e._count.reports, 0)})
+                </button>
+                {endpoints.map((endpoint) => (
+                  <button
+                    key={endpoint.id}
+                    onClick={() => setSelectedEndpoint(endpoint.name)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      selectedEndpoint === endpoint.name
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    {endpoint.name} ({endpoint._count.reports})
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -160,6 +232,7 @@ export default function Home() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Timestamp</TableHead>
+                  <TableHead>Endpoint</TableHead>
                   <TableHead>Document URI</TableHead>
                   <TableHead>Violated Directive</TableHead>
                   <TableHead>Blocked URI</TableHead>
@@ -175,6 +248,11 @@ export default function Home() {
                   >
                     <TableCell className="font-mono text-sm">
                       {formatTimestamp(report.timestamp)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono">
+                        {report.endpoint.name}
+                      </Badge>
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
                       {report.documentUri}
@@ -214,6 +292,14 @@ export default function Home() {
                     <div>
                       <label className="text-sm font-medium">Timestamp</label>
                       <p className="font-mono text-sm">{formatTimestamp(selectedReport.timestamp)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Endpoint</label>
+                      <div className="mt-1">
+                        <Badge variant="outline" className="font-mono">
+                          {selectedReport.endpoint.name}
+                        </Badge>
+                      </div>
                     </div>
                     <div>
                       <label className="text-sm font-medium">Disposition</label>

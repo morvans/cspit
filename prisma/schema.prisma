@@ -10,6 +10,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Endpoint {
+  id      String      @id @default(auto()) @map("_id") @db.ObjectId
+  name    String      @unique
+  reports CspReport[]
+  
+  @@map("endpoints")
+}
+
 model CspReport {
   id                    String   @id @default(auto()) @map("_id") @db.ObjectId
   documentUri           String
@@ -27,6 +35,9 @@ model CspReport {
   userAgent             String?
   rawReport             String   // Store the complete raw CSP report for debugging
   timestamp             DateTime @default(now())
+  
+  endpoint   Endpoint @relation(fields: [endpointId], references: [id])
+  endpointId String   @db.ObjectId
   
   @@map("csp_reports")
 }

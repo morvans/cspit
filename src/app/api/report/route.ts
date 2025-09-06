@@ -20,8 +20,19 @@ export async function POST(request: NextRequest) {
     // Extract user agent from headers
     const userAgent = request.headers.get('user-agent') || undefined;
 
+    // Find or create a default endpoint for legacy reports
+    let endpoint = await (prisma as unknown as { endpoint: { findUnique: (args: { where: { name: string } }) => Promise<{ id: string; name: string } | null>; create: (args: { data: { name: string } }) => Promise<{ id: string; name: string }> } }).endpoint.findUnique({
+      where: { name: 'default' }
+    });
+
+    if (!endpoint) {
+      endpoint = await (prisma as unknown as { endpoint: { findUnique: (args: { where: { name: string } }) => Promise<{ id: string; name: string } | null>; create: (args: { data: { name: string } }) => Promise<{ id: string; name: string }> } }).endpoint.create({
+        data: { name: 'default' }
+      });
+    }
+
     // Create the report in the database
-    const report = await prisma.cspReport.create({
+    const report = await (prisma as unknown as { cspReport: { create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }> } }).cspReport.create({
       data: {
         documentUri: cspReport['document-uri'] || '',
         referrer: cspReport.referrer || undefined,
@@ -36,7 +47,8 @@ export async function POST(request: NextRequest) {
         statusCode: cspReport['status-code'] || undefined,
         scriptSample: cspReport['script-sample'] || undefined,
         userAgent,
-        rawReport: JSON.stringify(body, null, 2), // Store the complete raw request body
+        rawReport: JSON.stringify(body, null, 2),
+        endpointId: endpoint.id,
       },
     });
 

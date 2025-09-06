@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
   Table,
   TableBody,
@@ -50,7 +51,7 @@ interface GenericReport {
   type: string;
   url: string;
   userAgent?: string;
-  body: any;
+  body: unknown;
   age?: number;
   timestamp: string;
   reportType: string;
@@ -88,53 +89,7 @@ export default function Home() {
   const [isCreatingEndpoint, setIsCreatingEndpoint] = useState(false);
   const [endpointError, setEndpointError] = useState<string | null>(null);
 
-  // Redirect to sign-in if not authenticated
-  useEffect(() => {
-    if (status === 'loading') return; // Still loading
-    if (!session) {
-      router.push('/auth/signin');
-      return;
-    }
-  }, [session, status, router]);
-
-  // Fetch data when component mounts and user is authenticated
-  useEffect(() => {
-    if (session) {
-      fetchEndpoints();
-      fetchReports();
-    }
-  }, [session]);
-
-  // Fetch reports when selected endpoint or report type changes
-  useEffect(() => {
-    if (session) {
-      fetchReports();
-    }
-  }, [selectedEndpoint, selectedReportType, session]);
-
-  // Show loading while session is being checked
-  if (status === 'loading') {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Checking authentication...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading while redirecting
-  if (!session) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Redirecting to sign-in...</div>
-        </div>
-      </div>
-    );
-  }
-
-  const fetchEndpoints = async () => {
+  const fetchEndpoints = useCallback(async () => {
     try {
       const response = await fetch('/api/endpoints');
       if (!response.ok) {
@@ -145,9 +100,9 @@ export default function Home() {
     } catch (err) {
       console.error('Error fetching endpoints:', err);
     }
-  };
+  }, []);
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (selectedEndpoint) {
@@ -181,7 +136,53 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedEndpoint, selectedReportType]);
+
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (status === 'loading') return; // Still loading
+    if (!session) {
+      router.push('/auth/signin');
+      return;
+    }
+  }, [session, status, router]);
+
+  // Fetch data when component mounts and user is authenticated
+  useEffect(() => {
+    if (session) {
+      fetchEndpoints();
+      fetchReports();
+    }
+  }, [session, fetchEndpoints, fetchReports]);
+
+  // Fetch reports when selected endpoint or report type changes
+  useEffect(() => {
+    if (session) {
+      fetchReports();
+    }
+  }, [fetchReports, session]);
+
+  // Show loading while session is being checked
+  if (status === 'loading') {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Checking authentication...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while redirecting
+  if (!session) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Redirecting to sign-in...</div>
+        </div>
+      </div>
+    );
+  }
 
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleString();
@@ -316,9 +317,11 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground">{session.user.email}</p>
               </div>
               {session.user.image && (
-                <img
+                <Image
                   src={session.user.image}
                   alt={session.user.name || 'User'}
+                  width={32}
+                  height={32}
                   className="w-8 h-8 rounded-full"
                 />
               )}

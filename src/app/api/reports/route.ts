@@ -4,6 +4,38 @@ import { requireAuth } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
+// Define types for the transformed reports
+interface TransformedReport {
+  id: string;
+  timestamp: Date;
+  reportType: string;
+  source: string;
+  endpoint: {
+    id: string;
+    name: string;
+  };
+  // CSP-specific fields
+  documentUri?: string;
+  referrer?: string;
+  violatedDirective?: string;
+  effectiveDirective?: string;
+  originalPolicy?: string;
+  disposition?: string;
+  blockedUri?: string;
+  lineNumber?: number;
+  columnNumber?: number;
+  sourceFile?: string;
+  statusCode?: number;
+  scriptSample?: string;
+  userAgent?: string;
+  rawReport?: string;
+  // Generic report fields
+  type?: string;
+  url?: string;
+  body?: unknown;
+  age?: number;
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Require authentication
@@ -19,7 +51,7 @@ export async function GET(request: NextRequest) {
     const endpointFilter = searchParams.get('endpoint');
     const reportType = searchParams.get('type'); // 'csp', 'generic', or 'all' (default)
 
-    let allReports: any[] = [];
+    const allReports: TransformedReport[] = [];
 
     // Fetch CSP reports if requested
     if (!reportType || reportType === 'all' || reportType === 'csp') {
@@ -42,7 +74,7 @@ export async function GET(request: NextRequest) {
         ...report,
         reportType: 'csp-violation',
         source: 'legacy'
-      }));
+      })) as TransformedReport[];
 
       allReports.push(...transformedCspReports);
     }
@@ -54,7 +86,7 @@ export async function GET(request: NextRequest) {
           ? { endpoint: { name: endpointFilter } }
           : undefined;
 
-        const genericReports = await (prisma as any).report.findMany({
+        const genericReports = await (prisma as unknown as { report: { findMany: (args: unknown) => Promise<unknown[]> } }).report.findMany({
           where: genericWhereClause,
           include: {
             endpoint: true,
@@ -65,11 +97,11 @@ export async function GET(request: NextRequest) {
         });
 
         // Transform generic reports to have a consistent structure
-        const transformedGenericReports = genericReports.map((report: any) => ({
-          ...report,
-          reportType: report.type,
+        const transformedGenericReports = genericReports.map((report: unknown) => ({
+          ...(report as Record<string, unknown>),
+          reportType: (report as { type: string }).type,
           source: 'reporting-api'
-        }));
+        })) as TransformedReport[];
 
         allReports.push(...transformedGenericReports);
       } catch (error) {

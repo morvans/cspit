@@ -9,7 +9,42 @@ interface ReportingAPIReport {
   age: number;
   url: string;
   user_agent: string;
-  body: any;
+  body: unknown;
+}
+
+// Interface for CSP report format
+interface CSPReportBody {
+  'document-uri'?: string;
+  referrer?: string;
+  'violated-directive'?: string;
+  'effective-directive'?: string;
+  'original-policy'?: string;
+  disposition?: string;
+  'blocked-uri'?: string;
+  'line-number'?: number;
+  'column-number'?: number;
+  'source-file'?: string;
+  'status-code'?: number;
+  'script-sample'?: string;
+}
+
+// Interface for legacy CSP report wrapper
+interface LegacyCSPReport {
+  'csp-report': CSPReportBody;
+}
+
+// Type for Prisma client with dynamic access
+interface PrismaWithDynamicAccess {
+  endpoint: {
+    findUnique: (args: { where: { name: string } }) => Promise<{ id: string; name: string } | null>;
+    create: (args: { data: { name: string } }) => Promise<{ id: string; name: string }>;
+  };
+  cspReport: {
+    create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }>;
+  };
+  report: {
+    create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }>;
+  };
 }
 
 export async function POST(
@@ -27,18 +62,19 @@ export async function POST(
       const userAgent = request.headers.get('user-agent') || undefined;
 
       // Find or create the endpoint
-      let endpoint = await (prisma as any).endpoint.findUnique({
+      const prismaTyped = prisma as unknown as PrismaWithDynamicAccess;
+      let endpoint = await prismaTyped.endpoint.findUnique({
         where: { name: endpointName }
       });
 
       if (!endpoint) {
-        endpoint = await (prisma as any).endpoint.create({
+        endpoint = await prismaTyped.endpoint.create({
           data: { name: endpointName }
         });
       }
 
       // Create the legacy CSP report
-      const report = await (prisma as any).cspReport.create({
+      const report = await prismaTyped.cspReport.create({
         data: {
           documentUri: cspReport['document-uri'] || '',
           referrer: cspReport.referrer || undefined,
@@ -83,20 +119,21 @@ export async function POST(
     }
 
     // Find or create the endpoint
-    let endpoint = await (prisma as any).endpoint.findUnique({
+    const prismaTyped = prisma as unknown as PrismaWithDynamicAccess;
+    let endpoint = await prismaTyped.endpoint.findUnique({
       where: { name: endpointName }
     });
 
     if (!endpoint) {
-      endpoint = await (prisma as any).endpoint.create({
+      endpoint = await prismaTyped.endpoint.create({
         data: { name: endpointName }
       });
     }
 
     // Process each report in the array
-    const createdReports = [];
+    const createdReports: { id: string }[] = [];
     
-    for (const report of reportsArray as ReportingAPIReport[]) {
+    for (const report of reportsArray) {
       // Validate required fields
       if (!report.type || !report.url) {
         console.warn('Skipping invalid modern report - missing type or url:', report);
@@ -105,7 +142,7 @@ export async function POST(
 
       try {
         // Use dynamic access to avoid TypeScript errors before Prisma client regeneration
-        const createdReport = await (prisma as any).report.create({
+        const createdReport = await prismaTyped.report.create({
           data: {
             type: report.type,
             url: report.url,

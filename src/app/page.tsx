@@ -75,6 +75,21 @@ export default function Home() {
     }
   }, [session, status, router]);
 
+  // Fetch data when component mounts and user is authenticated
+  useEffect(() => {
+    if (session) {
+      fetchEndpoints();
+      fetchReports();
+    }
+  }, [session]);
+
+  // Fetch reports when selected endpoint changes
+  useEffect(() => {
+    if (session) {
+      fetchReports();
+    }
+  }, [selectedEndpoint, session]);
+
   // Show loading while session is being checked
   if (status === 'loading') {
     return (
@@ -96,15 +111,6 @@ export default function Home() {
       </div>
     );
   }
-
-  useEffect(() => {
-    fetchEndpoints();
-    fetchReports();
-  }, []);
-
-  useEffect(() => {
-    fetchReports();
-  }, [selectedEndpoint]);
 
   const fetchEndpoints = async () => {
     try {

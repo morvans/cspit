@@ -26,9 +26,10 @@ These endpoints continue to work with the legacy CSP report format for backward 
 ```
 POST /api/v1/report/{endpoint-name}
 ```
-This endpoint accepts the modern Reporting API format and is flexible:
-- **Array format**: Send multiple reports as a JSON array (standard Reporting API format)
-- **Single format**: Send a single report as a JSON object (for convenience)
+This endpoint is highly flexible and accepts multiple formats:
+- **Modern array format**: Send multiple reports as a JSON array (standard Reporting API format)
+- **Modern single format**: Send a single report as a JSON object (for convenience)
+- **Legacy CSP format**: Automatically detects and handles legacy CSP reports with `csp-report` wrapper
 
 ## Report Format
 
@@ -145,11 +146,20 @@ Check the dashboard to see your test report appear in the "Generic Reports" sect
 
 ## Migration from Legacy CSP
 
-If you're currently using the legacy CSP endpoints, you don't need to change anything immediately. The old endpoints continue to work. However, to take advantage of the full Reporting API:
+The new generic endpoint provides seamless migration from legacy CSP reporting:
 
+### Option 1: Gradual Migration (Recommended)
 1. Update your `Reporting-Endpoints` header to point to `/api/v1/report/{endpoint}`
-2. Configure other policies (Feature Policy, etc.) to use the same endpoint
-3. Your reports will automatically appear in the new unified dashboard
+2. Your existing CSP reports will continue to work automatically (legacy format is detected)
+3. Configure other policies (Feature Policy, etc.) to use the same endpoint
+4. All reports will appear in the unified dashboard
+
+### Option 2: Keep Existing Setup
+- Legacy endpoints (`/api/report/{endpoint}`) continue to work unchanged
+- Use new endpoint (`/api/v1/report/{endpoint}`) for new report types
+- Both will appear in the unified dashboard
+
+The new endpoint automatically detects the report format, so browsers sending legacy CSP reports will work without any configuration changes.
 
 ## Database Schema
 

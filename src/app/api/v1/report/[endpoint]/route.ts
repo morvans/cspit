@@ -20,7 +20,53 @@ export async function POST(
     const body = await request.json();
     const { endpoint: endpointName } = await params;
     
-    // Handle both single report objects and arrays of reports
+    // Check if this is a legacy CSP report format
+    if (body['csp-report']) {
+      // Handle legacy CSP report format - delegate to the legacy CSP endpoint logic
+      const cspReport = body['csp-report'];
+      const userAgent = request.headers.get('user-agent') || undefined;
+
+      // Find or create the endpoint
+      let endpoint = await (prisma as any).endpoint.findUnique({
+        where: { name: endpointName }
+      });
+
+      if (!endpoint) {
+        endpoint = await (prisma as any).endpoint.create({
+          data: { name: endpointName }
+        });
+      }
+
+      // Create the legacy CSP report
+      const report = await (prisma as any).cspReport.create({
+        data: {
+          documentUri: cspReport['document-uri'] || '',
+          referrer: cspReport.referrer || undefined,
+          violatedDirective: cspReport['violated-directive'] || '',
+          effectiveDirective: cspReport['effective-directive'] || '',
+          originalPolicy: cspReport['original-policy'] || '',
+          disposition: cspReport.disposition || 'enforce',
+          blockedUri: cspReport['blocked-uri'] || undefined,
+          lineNumber: cspReport['line-number'] || undefined,
+          columnNumber: cspReport['column-number'] || undefined,
+          sourceFile: cspReport['source-file'] || undefined,
+          statusCode: cspReport['status-code'] || undefined,
+          scriptSample: cspReport['script-sample'] || undefined,
+          userAgent,
+          rawReport: JSON.stringify(body, null, 2),
+          endpointId: endpoint.id,
+        },
+      });
+
+      return NextResponse.json({ 
+        success: true, 
+        id: report.id, 
+        endpoint: endpointName,
+        format: 'legacy-csp'
+      }, { status: 201 });
+    }
+
+    // Handle modern Reporting API format
     let reportsArray: ReportingAPIReport[];
     
     if (Array.isArray(body)) {
@@ -53,7 +99,7 @@ export async function POST(
     for (const report of reportsArray as ReportingAPIReport[]) {
       // Validate required fields
       if (!report.type || !report.url) {
-        console.warn('Skipping invalid report - missing type or url:', report);
+        console.warn('Skipping invalid modern report - missing type or url:', report);
         continue;
       }
 
@@ -82,7 +128,7 @@ export async function POST(
       endpoint: endpointName,
       reportsProcessed: createdReports.length,
       totalReports: reportsArray.length,
-      format: Array.isArray(body) ? 'array' : 'single'
+      format: Array.isArray(body) ? 'modern-array' : 'modern-single'
     }, { status: 201 });
 
   } catch (error) {

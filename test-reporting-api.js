@@ -198,11 +198,41 @@ async function runTests() {
       }
     }
     
+    // Test 4: Send legacy CSP report format
+    console.log('\n📤 Test 4: Sending legacy CSP report format...');
+    const legacyCspReport = {
+      'csp-report': {
+        'blocked-uri': 'https://evil.com/malicious.js',
+        'column-number': 429,
+        'disposition': 'enforce',
+        'document-uri': 'https://example.com/test-page',
+        'effective-directive': 'script-src',
+        'line-number': 770,
+        'original-policy': "script-src 'self'",
+        'referrer': 'https://example.com/',
+        'script-sample': 'console.log("malicious code")',
+        'source-file': 'https://example.com/app.js',
+        'status-code': 200,
+        'violated-directive': 'script-src'
+      }
+    };
+    
+    const legacyResponse = await sendRequest(API_URL, legacyCspReport);
+    
+    if (legacyResponse.statusCode === 201) {
+      console.log('✅ Legacy CSP report sent successfully');
+      console.log(`   Format detected: ${legacyResponse.body.format}`);
+    } else {
+      console.log(`❌ Legacy CSP report failed with status ${legacyResponse.statusCode}`);
+      console.log(`   Response: ${JSON.stringify(legacyResponse.body, null, 2)}`);
+    }
+    
     console.log('\n🎉 Testing completed!');
     console.log('\n📊 Next steps:');
     console.log(`   1. Open your dashboard at ${BASE_URL}`);
-    console.log(`   2. Check the "Generic Reports" filter to see the test reports`);
+    console.log(`   2. Check both "CSP Reports" and "Generic Reports" filters`);
     console.log(`   3. Click on individual reports to see their details`);
+    console.log(`   4. Notice how legacy CSP reports appear in the CSP section`);
     
   } catch (error) {
     console.error('❌ Test failed with error:', error.message);

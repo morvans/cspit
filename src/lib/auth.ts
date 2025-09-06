@@ -4,7 +4,14 @@ import { PrismaClient } from '@prisma/client'
 import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 
-const prisma = new PrismaClient()
+// Create a singleton PrismaClient instance
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined
+}
+
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),

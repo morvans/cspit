@@ -11,9 +11,10 @@ datasource db {
 }
 
 model Endpoint {
-  id      String      @id @default(auto()) @map("_id") @db.ObjectId
-  name    String      @unique
-  reports CspReport[]
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  name       String      @unique
+  cspReports CspReport[]
+  reports    Report[]
   
   @@map("endpoints")
 }
@@ -40,6 +41,22 @@ model CspReport {
   endpointId String   @db.ObjectId
   
   @@map("csp_reports")
+}
+
+// Generic Report model for all Reporting API report types
+model Report {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  type      String   // Report type (e.g., "csp-violation", "deprecation", "intervention")
+  url       String   // URL where the report was generated
+  userAgent String?  // User agent of the client
+  body      Json?    // Flexible JSON field to store the report body
+  age       Int?     // Age of the report in milliseconds (from Reporting API)
+  timestamp DateTime @default(now())
+  
+  endpoint   Endpoint @relation(fields: [endpointId], references: [id])
+  endpointId String   @db.ObjectId
+  
+  @@map("reports")
 }
 
 // NextAuth.js models

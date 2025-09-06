@@ -37,11 +37,31 @@ interface CspReport {
   userAgent?: string;
   rawReport: string;
   timestamp: string;
+  reportType: string;
+  source: string;
   endpoint: {
     id: string;
     name: string;
   };
 }
+
+interface GenericReport {
+  id: string;
+  type: string;
+  url: string;
+  userAgent?: string;
+  body: any;
+  age?: number;
+  timestamp: string;
+  reportType: string;
+  source: string;
+  endpoint: {
+    id: string;
+    name: string;
+  };
+}
+
+type Report = CspReport | GenericReport;
 
 interface Endpoint {
   id: string;
@@ -54,12 +74,14 @@ interface Endpoint {
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [reports, setReports] = useState<CspReport[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportStats, setReportStats] = useState({ totalCount: 0, cspCount: 0, genericCount: 0 });
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
+  const [selectedReportType, setSelectedReportType] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedReport, setSelectedReport] = useState<CspReport | null>(null);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showEndpointManager, setShowEndpointManager] = useState(false);
   const [newEndpointName, setNewEndpointName] = useState('');
@@ -83,12 +105,12 @@ export default function Home() {
     }
   }, [session]);
 
-  // Fetch reports when selected endpoint changes
+  // Fetch reports when selected endpoint or report type changes
   useEffect(() => {
     if (session) {
       fetchReports();
     }
-  }, [selectedEndpoint, session]);
+  }, [selectedEndpoint, selectedReportType, session]);
 
   // Show loading while session is being checked
   if (status === 'loading') {
@@ -127,15 +149,33 @@ export default function Home() {
 
   const fetchReports = async () => {
     try {
-      const url = selectedEndpoint 
-        ? `/api/reports?endpoint=${encodeURIComponent(selectedEndpoint)}`
-        : '/api/reports';
+      const params = new URLSearchParams();
+      if (selectedEndpoint) {
+        params.append('endpoint', selectedEndpoint);
+      }
+      if (selectedReportType !== 'all') {
+        params.append('type', selectedReportType);
+      }
+      
+      const url = `/api/reports${params.toString() ? '?' + params.toString() : ''}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch reports');
       }
       const data = await response.json();
-      setReports(data);
+      
+      // Handle both old format (array) and new format (object with reports array)
+      if (Array.isArray(data)) {
+        setReports(data);
+        setReportStats({ totalCount: data.length, cspCount: data.length, genericCount: 0 });
+      } else {
+        setReports(data.reports || []);
+        setReportStats({
+          totalCount: data.totalCount || 0,
+          cspCount: data.cspCount || 0,
+          genericCount: data.genericCount || 0
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -151,7 +191,7 @@ export default function Home() {
     return disposition === 'enforce' ? 'destructive' : 'secondary';
   };
 
-  const handleRowClick = (report: CspReport) => {
+  const handleRowClick = (report: Report) => {
     setSelectedReport(report);
     setIsDialogOpen(true);
   };
@@ -159,6 +199,23 @@ export default function Home() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setSelectedReport(null);
+  };
+
+  const isCSPReport = (report: Report): report is CspReport => {
+    return report.source === 'legacy' || 'violatedDirective' in report;
+  };
+
+  const getReportTypeColor = (reportType: string) => {
+    switch (reportType) {
+      case 'csp-violation':
+        return 'destructive';
+      case 'deprecation':
+        return 'secondary';
+      case 'intervention':
+        return 'default';
+      default:
+        return 'outline';
+    }
   };
 
   const createEndpoint = async () => {
@@ -246,9 +303,9 @@ export default function Home() {
     <div className="container mx-auto p-6">
       <div className="mb-6 flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold">CSP Violation Reports</h1>
+          <h1 className="text-3xl font-bold">Security Reports Dashboard</h1>
           <p className="text-muted-foreground mt-2">
-            Monitor and analyze Content Security Policy violations
+            Monitor and analyze security reports from the Reporting API
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -370,65 +427,112 @@ export default function Home() {
         <div className="mb-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Filter by Endpoint</CardTitle>
+              <CardTitle className="text-lg">Filters</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setSelectedEndpoint('')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    selectedEndpoint === ''
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  }`}
-                >
-                  All Endpoints ({endpoints.reduce((sum, e) => sum + e._count.reports, 0)})
-                </button>
-                {endpoints.map((endpoint) => (
+            <CardContent className="space-y-4">
+              {/* Endpoint Filter */}
+              <div>
+                <h3 className="font-medium mb-2">Filter by Endpoint</h3>
+                <div className="flex flex-wrap gap-2">
                   <button
-                    key={endpoint.id}
-                    onClick={() => setSelectedEndpoint(endpoint.name)}
+                    onClick={() => setSelectedEndpoint('')}
                     className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      selectedEndpoint === endpoint.name
+                      selectedEndpoint === ''
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                     }`}
                   >
-                    {endpoint.name} ({endpoint._count.reports})
+                    All Endpoints ({reportStats.totalCount})
                   </button>
-                ))}
+                  {endpoints.map((endpoint) => (
+                    <button
+                      key={endpoint.id}
+                      onClick={() => setSelectedEndpoint(endpoint.name)}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        selectedEndpoint === endpoint.name
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                      }`}
+                    >
+                      {endpoint.name} ({endpoint._count.reports})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Report Type Filter */}
+              <div>
+                <h3 className="font-medium mb-2">Filter by Report Type</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedReportType('all')}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      selectedReportType === 'all'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    All Types ({reportStats.totalCount})
+                  </button>
+                  <button
+                    onClick={() => setSelectedReportType('csp')}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      selectedReportType === 'csp'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    CSP Reports ({reportStats.cspCount})
+                  </button>
+                  <button
+                    onClick={() => setSelectedReportType('generic')}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      selectedReportType === 'generic'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Generic Reports ({reportStats.genericCount})
+                  </button>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
+      <div className="grid gap-4 md:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{reports.length}</div>
+            <div className="text-2xl font-bold">{reportStats.totalCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Enforced</CardTitle>
+            <CardTitle className="text-sm font-medium">CSP Reports</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {reports.filter(r => r.disposition === 'enforce').length}
-            </div>
+            <div className="text-2xl font-bold">{reportStats.cspCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Report Only</CardTitle>
+            <CardTitle className="text-sm font-medium">Generic Reports</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{reportStats.genericCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">CSP Enforced</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {reports.filter(r => r.disposition === 'report').length}
+              {reports.filter(r => isCSPReport(r) && r.disposition === 'enforce').length}
             </div>
           </CardContent>
         </Card>
@@ -451,11 +555,11 @@ export default function Home() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Timestamp</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Endpoint</TableHead>
-                  <TableHead>Document URI</TableHead>
-                  <TableHead>Violated Directive</TableHead>
-                  <TableHead>Blocked URI</TableHead>
-                  <TableHead>Disposition</TableHead>
+                  <TableHead>URL/Document</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -469,25 +573,34 @@ export default function Home() {
                       {formatTimestamp(report.timestamp)}
                     </TableCell>
                     <TableCell>
+                      <Badge variant={getReportTypeColor(report.reportType)}>
+                        {report.reportType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline" className="font-mono">
                         {report.endpoint.name}
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
-                      {report.documentUri}
-                    </TableCell>
-                    <TableCell>
-                      <code className="bg-muted px-2 py-1 rounded text-sm">
-                        {report.violatedDirective}
-                      </code>
+                      {isCSPReport(report) ? report.documentUri : report.url}
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
-                      {report.blockedUri || '-'}
+                      {isCSPReport(report) 
+                        ? report.violatedDirective 
+                        : (report.body ? JSON.stringify(report.body).substring(0, 50) + '...' : '-')
+                      }
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getDispositionColor(report.disposition)}>
-                        {report.disposition}
-                      </Badge>
+                      {isCSPReport(report) ? (
+                        <Badge variant={getDispositionColor(report.disposition)}>
+                          {report.disposition}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          {report.source}
+                        </Badge>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -500,7 +613,9 @@ export default function Home() {
       <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>CSP Violation Report Details</DialogTitle>
+            <DialogTitle>
+              {selectedReport && isCSPReport(selectedReport) ? 'CSP Violation Report Details' : 'Report Details'}
+            </DialogTitle>
           </DialogHeader>
           {selectedReport && (
             <div className="space-y-6">
@@ -513,6 +628,14 @@ export default function Home() {
                       <p className="font-mono text-sm">{formatTimestamp(selectedReport.timestamp)}</p>
                     </div>
                     <div>
+                      <label className="text-sm font-medium">Report Type</label>
+                      <div className="mt-1">
+                        <Badge variant={getReportTypeColor(selectedReport.reportType)}>
+                          {selectedReport.reportType}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
                       <label className="text-sm font-medium">Endpoint</label>
                       <div className="mt-1">
                         <Badge variant="outline" className="font-mono">
@@ -520,63 +643,88 @@ export default function Home() {
                         </Badge>
                       </div>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">Disposition</label>
-                      <div className="mt-1">
-                        <Badge variant={getDispositionColor(selectedReport.disposition)}>
-                          {selectedReport.disposition}
-                        </Badge>
+                    {isCSPReport(selectedReport) && (
+                      <div>
+                        <label className="text-sm font-medium">Disposition</label>
+                        <div className="mt-1">
+                          <Badge variant={getDispositionColor(selectedReport.disposition)}>
+                            {selectedReport.disposition}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div>
-                      <label className="text-sm font-medium">Document URI</label>
-                      <p className="text-sm break-all">{selectedReport.documentUri}</p>
+                      <label className="text-sm font-medium">{isCSPReport(selectedReport) ? 'Document URI' : 'URL'}</label>
+                      <p className="text-sm break-all">
+                        {isCSPReport(selectedReport) ? selectedReport.documentUri : selectedReport.url}
+                      </p>
                     </div>
-                    {selectedReport.referrer && (
+                    {isCSPReport(selectedReport) && selectedReport.referrer && (
                       <div>
                         <label className="text-sm font-medium">Referrer</label>
                         <p className="text-sm break-all">{selectedReport.referrer}</p>
                       </div>
                     )}
+                    {!isCSPReport(selectedReport) && selectedReport.age && (
+                      <div>
+                        <label className="text-sm font-medium">Age (ms)</label>
+                        <p className="text-sm">{selectedReport.age}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-sm text-muted-foreground mb-2">VIOLATION DETAILS</h3>
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-2">
+                    {isCSPReport(selectedReport) ? 'VIOLATION DETAILS' : 'REPORT DETAILS'}
+                  </h3>
                   <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium">Violated Directive</label>
-                      <code className="block bg-muted px-2 py-1 rounded text-sm mt-1">
-                        {selectedReport.violatedDirective}
-                      </code>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Effective Directive</label>
-                      <code className="block bg-muted px-2 py-1 rounded text-sm mt-1">
-                        {selectedReport.effectiveDirective}
-                      </code>
-                    </div>
-                    {selectedReport.blockedUri && (
+                    {isCSPReport(selectedReport) ? (
+                      <>
+                        <div>
+                          <label className="text-sm font-medium">Violated Directive</label>
+                          <code className="block bg-muted px-2 py-1 rounded text-sm mt-1">
+                            {selectedReport.violatedDirective}
+                          </code>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Effective Directive</label>
+                          <code className="block bg-muted px-2 py-1 rounded text-sm mt-1">
+                            {selectedReport.effectiveDirective}
+                          </code>
+                        </div>
+                        {selectedReport.blockedUri && (
+                          <div>
+                            <label className="text-sm font-medium">Blocked URI</label>
+                            <p className="text-sm break-all">{selectedReport.blockedUri}</p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
                       <div>
-                        <label className="text-sm font-medium">Blocked URI</label>
-                        <p className="text-sm break-all">{selectedReport.blockedUri}</p>
+                        <label className="text-sm font-medium">Report Body</label>
+                        <pre className="block bg-muted px-3 py-2 rounded text-sm mt-1 whitespace-pre-wrap overflow-x-auto max-h-40 border">
+                          {selectedReport.body ? JSON.stringify(selectedReport.body, null, 2) : 'No body data'}
+                        </pre>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="font-semibold text-sm text-muted-foreground mb-2">POLICY</h3>
+              {isCSPReport(selectedReport) && (
                 <div>
-                  <label className="text-sm font-medium">Original Policy</label>
-                  <code className="block bg-muted px-3 py-2 rounded text-sm mt-1 whitespace-pre-wrap">
-                    {selectedReport.originalPolicy}
-                  </code>
+                  <h3 className="font-semibold text-sm text-muted-foreground mb-2">POLICY</h3>
+                  <div>
+                    <label className="text-sm font-medium">Original Policy</label>
+                    <code className="block bg-muted px-3 py-2 rounded text-sm mt-1 whitespace-pre-wrap">
+                      {selectedReport.originalPolicy}
+                    </code>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {(selectedReport.sourceFile || selectedReport.lineNumber || selectedReport.columnNumber || selectedReport.scriptSample) && (
+              {isCSPReport(selectedReport) && (selectedReport.sourceFile || selectedReport.lineNumber || selectedReport.columnNumber || selectedReport.scriptSample) && (
                 <div>
                   <h3 className="font-semibold text-sm text-muted-foreground mb-2">SOURCE INFORMATION</h3>
                   <div className="grid gap-4 md:grid-cols-2">
@@ -612,11 +760,11 @@ export default function Home() {
                 </div>
               )}
 
-              {(selectedReport.statusCode || selectedReport.userAgent) && (
+              {((isCSPReport(selectedReport) && selectedReport.statusCode) || selectedReport.userAgent) && (
                 <div>
                   <h3 className="font-semibold text-sm text-muted-foreground mb-2">ADDITIONAL INFORMATION</h3>
                   <div className="space-y-3">
-                    {selectedReport.statusCode && (
+                    {isCSPReport(selectedReport) && selectedReport.statusCode && (
                       <div>
                         <label className="text-sm font-medium">Status Code</label>
                         <p className="text-sm">{selectedReport.statusCode}</p>
@@ -635,9 +783,14 @@ export default function Home() {
               <div>
                 <h3 className="font-semibold text-sm text-muted-foreground mb-2">RAW REPORT (DEBUG)</h3>
                 <div>
-                  <label className="text-sm font-medium">Complete Raw CSP Report</label>
+                  <label className="text-sm font-medium">
+                    {isCSPReport(selectedReport) ? 'Complete Raw CSP Report' : 'Complete Report Data'}
+                  </label>
                   <pre className="block bg-muted px-3 py-2 rounded text-xs mt-1 whitespace-pre-wrap overflow-x-auto max-h-60 border">
-                    {selectedReport.rawReport}
+                    {isCSPReport(selectedReport) 
+                      ? selectedReport.rawReport 
+                      : JSON.stringify(selectedReport, null, 2)
+                    }
                   </pre>
                 </div>
               </div>

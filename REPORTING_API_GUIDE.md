@@ -26,12 +26,14 @@ These endpoints continue to work with the legacy CSP report format for backward 
 ```
 POST /api/v1/report/{endpoint-name}
 ```
-This endpoint accepts the modern Reporting API format with an array of reports.
+This endpoint accepts the modern Reporting API format and is flexible:
+- **Array format**: Send multiple reports as a JSON array (standard Reporting API format)
+- **Single format**: Send a single report as a JSON object (for convenience)
 
 ## Report Format
 
 ### Modern Reporting API Format
-Send reports as a JSON array where each report has this structure:
+Send reports as a JSON array (or single object) where each report has this structure:
 
 ```json
 [
@@ -105,6 +107,8 @@ The web dashboard now supports:
 Use the dashboard to create a new endpoint, e.g., "test-app"
 
 ### 2. Send a Test Report
+
+**Array format (standard):**
 ```bash
 curl -X POST https://your-domain.com/api/v1/report/test-app \
   -H "Content-Type: application/reports+json" \
@@ -118,6 +122,22 @@ curl -X POST https://your-domain.com/api/v1/report/test-app \
       "message": "This is a test deprecation report"
     }
   }]'
+```
+
+**Single object format (convenience):**
+```bash
+curl -X POST https://your-domain.com/api/v1/report/test-app \
+  -H "Content-Type: application/reports+json" \
+  -d '{
+    "type": "deprecation",
+    "age": 1000,
+    "url": "https://example.com/test",
+    "user_agent": "Test Agent",
+    "body": {
+      "id": "TestFeature",
+      "message": "This is a test deprecation report"
+    }
+  }'
 ```
 
 ### 3. View in Dashboard

@@ -163,16 +163,35 @@ async function runTests() {
       console.log(`   Response: ${JSON.stringify(response1.body, null, 2)}\n`);
     }
     
-    // Test 2: Send individual reports
-    console.log('📤 Test 2: Sending individual reports...');
+    // Test 2: Send individual reports as arrays
+    console.log('📤 Test 2: Sending individual reports as arrays...');
     for (let i = 0; i < testReports.length; i++) {
       const report = testReports[i];
-      console.log(`   Sending ${report.type} report...`);
+      console.log(`   Sending ${report.type} report as array...`);
       
       const response = await sendRequest(API_URL, [report]);
       
       if (response.statusCode === 201) {
-        console.log(`   ✅ ${report.type} report sent successfully`);
+        console.log(`   ✅ ${report.type} report sent successfully (array format)`);
+      } else {
+        console.log(`   ❌ ${report.type} report failed with status ${response.statusCode}`);
+        console.log(`      Response: ${JSON.stringify(response.body, null, 2)}`);
+      }
+    }
+    
+    // Test 3: Send individual reports as single objects
+    console.log('\n📤 Test 3: Sending individual reports as single objects...');
+    for (let i = 0; i < testReports.length; i++) {
+      const report = testReports[i];
+      console.log(`   Sending ${report.type} report as single object...`);
+      
+      const response = await sendRequest(API_URL, report); // Send as single object, not array
+      
+      if (response.statusCode === 201) {
+        console.log(`   ✅ ${report.type} report sent successfully (single format)`);
+        if (response.body.format) {
+          console.log(`      Format detected: ${response.body.format}`);
+        }
       } else {
         console.log(`   ❌ ${report.type} report failed with status ${response.statusCode}`);
         console.log(`      Response: ${JSON.stringify(response.body, null, 2)}`);

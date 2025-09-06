@@ -20,21 +20,29 @@ export async function POST(
     const body = await request.json();
     const { endpoint: endpointName } = await params;
     
-    // Modern Reporting API sends an array of reports
-    if (!Array.isArray(body)) {
+    // Handle both single report objects and arrays of reports
+    let reportsArray: ReportingAPIReport[];
+    
+    if (Array.isArray(body)) {
+      // Modern Reporting API format - array of reports
+      reportsArray = body;
+    } else if (typeof body === 'object' && body !== null) {
+      // Single report object - wrap it in an array
+      reportsArray = [body];
+    } else {
       return NextResponse.json(
-        { error: 'Expected an array of reports' },
+        { error: 'Expected a report object or an array of reports' },
         { status: 400 }
       );
     }
 
     // Find or create the endpoint
-    let endpoint = await prisma.endpoint.findUnique({
+    let endpoint = await (prisma as any).endpoint.findUnique({
       where: { name: endpointName }
     });
 
     if (!endpoint) {
-      endpoint = await prisma.endpoint.create({
+      endpoint = await (prisma as any).endpoint.create({
         data: { name: endpointName }
       });
     }
@@ -42,7 +50,7 @@ export async function POST(
     // Process each report in the array
     const createdReports = [];
     
-    for (const report of body as ReportingAPIReport[]) {
+    for (const report of reportsArray as ReportingAPIReport[]) {
       // Validate required fields
       if (!report.type || !report.url) {
         console.warn('Skipping invalid report - missing type or url:', report);
@@ -73,7 +81,8 @@ export async function POST(
       success: true, 
       endpoint: endpointName,
       reportsProcessed: createdReports.length,
-      totalReports: body.length
+      totalReports: reportsArray.length,
+      format: Array.isArray(body) ? 'array' : 'single'
     }, { status: 201 });
 
   } catch (error) {

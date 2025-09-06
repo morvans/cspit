@@ -12,27 +12,6 @@ interface ReportingAPIReport {
   body: unknown;
 }
 
-// Interface for CSP report format
-interface CSPReportBody {
-  'document-uri'?: string;
-  referrer?: string;
-  'violated-directive'?: string;
-  'effective-directive'?: string;
-  'original-policy'?: string;
-  disposition?: string;
-  'blocked-uri'?: string;
-  'line-number'?: number;
-  'column-number'?: number;
-  'source-file'?: string;
-  'status-code'?: number;
-  'script-sample'?: string;
-}
-
-// Interface for legacy CSP report wrapper
-interface LegacyCSPReport {
-  'csp-report': CSPReportBody;
-}
-
 // Type for Prisma client with dynamic access
 interface PrismaWithDynamicAccess {
   endpoint: {

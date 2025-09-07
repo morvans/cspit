@@ -40,16 +40,17 @@ export async function POST(
       const cspReport = body['csp-report'];
       const userAgent = request.headers.get('user-agent') || undefined;
 
-      // Find or create the endpoint
+      // Find the endpoint - do not create if it doesn't exist
       const prismaTyped = prisma as unknown as PrismaWithDynamicAccess;
-      let endpoint = await prismaTyped.endpoint.findUnique({
+      const endpoint = await prismaTyped.endpoint.findUnique({
         where: { token: endpointName }
       });
 
       if (!endpoint) {
-        endpoint = await prismaTyped.endpoint.create({
-          data: { label: endpointName }
-        });
+        return NextResponse.json(
+          { error: `Endpoint token '${endpointName}' not found. Please create the endpoint first.` },
+          { status: 404 }
+        );
       }
 
       // Create the legacy CSP report
@@ -97,16 +98,17 @@ export async function POST(
       );
     }
 
-    // Find or create the endpoint
+    // Find the endpoint - do not create if it doesn't exist
     const prismaTyped = prisma as unknown as PrismaWithDynamicAccess;
-    let endpoint = await prismaTyped.endpoint.findUnique({
+    const endpoint = await prismaTyped.endpoint.findUnique({
       where: { token: endpointName }
     });
 
     if (!endpoint) {
-      endpoint = await prismaTyped.endpoint.create({
-        data: { label: endpointName }
-      });
+      return NextResponse.json(
+        { error: `Endpoint token '${endpointName}' not found. Please create the endpoint first.` },
+        { status: 404 }
+      );
     }
 
     // Process each report in the array

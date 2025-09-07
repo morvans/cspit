@@ -21,15 +21,16 @@ export async function POST(
       );
     }
 
-    // Find or create the endpoint
-    let endpoint = await prisma.endpoint.findUnique({
+    // Find the endpoint - do not create if it doesn't exist
+    const endpoint = await prisma.endpoint.findUnique({
       where: { token: endpointName }
     });
 
     if (!endpoint) {
-      endpoint = await prisma.endpoint.create({
-        data: { label: endpointName }
-      });
+      return NextResponse.json(
+        { error: `Endpoint token '${endpointName}' not found. Please create the endpoint first.` },
+        { status: 404 }
+      );
     }
 
     // Extract user agent from headers

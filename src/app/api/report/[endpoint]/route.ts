@@ -23,12 +23,12 @@ export async function POST(
 
     // Find or create the endpoint
     let endpoint = await prisma.endpoint.findUnique({
-      where: { name: endpointName }
+      where: { token: endpointName }
     });
 
     if (!endpoint) {
       endpoint = await prisma.endpoint.create({
-        data: { name: endpointName }
+        data: { label: endpointName }
       });
     }
 

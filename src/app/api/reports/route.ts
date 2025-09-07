@@ -12,7 +12,8 @@ interface TransformedReport {
   source: string;
   endpoint: {
     id: string;
-    name: string;
+    token: string;
+    label: string;
   };
   // CSP-specific fields
   documentUri?: string;
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     // Fetch CSP reports if requested
     if (!reportType || reportType === 'all' || reportType === 'csp') {
       const cspWhereClause = endpointFilter 
-        ? { endpoint: { name: endpointFilter } }
+        ? { endpoint: { token: endpointFilter } }
         : undefined;
 
       const cspReports = await prisma.cspReport.findMany({
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
     if (!reportType || reportType === 'all' || reportType === 'generic') {
       try {
         const genericWhereClause = endpointFilter 
-          ? { endpoint: { name: endpointFilter } }
+          ? { endpoint: { token: endpointFilter } }
           : undefined;
 
         const genericReports = await (prisma as unknown as { report: { findMany: (args: unknown) => Promise<unknown[]> } }).report.findMany({

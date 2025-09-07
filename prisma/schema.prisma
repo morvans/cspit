@@ -12,7 +12,8 @@ datasource db {
 
 model Endpoint {
   id         String      @id @default(auto()) @map("_id") @db.ObjectId
-  name       String      @unique
+  token      String      @unique @default(cuid())
+  label      String
   cspReports CspReport[]
   reports    Report[]
   

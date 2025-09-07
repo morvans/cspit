@@ -18,7 +18,8 @@ export async function GET() {
     const endpoints = await prisma.endpoint.findMany({
       select: {
         id: true,
-        name: true,
+        token: true,
+        label: true,
         _count: {
           select: {
             reports: true,
@@ -26,7 +27,7 @@ export async function GET() {
         },
       },
       orderBy: {
-        name: 'asc',
+        label: 'asc',
       },
     });
 
@@ -51,34 +52,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name } = await request.json();
+    const { label } = await request.json();
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    if (!label || typeof label !== 'string' || label.trim().length === 0) {
       return NextResponse.json(
-        { error: 'Endpoint name is required and must be a non-empty string' },
+        { error: 'Endpoint label is required and must be a non-empty string' },
         { status: 400 }
       );
     }
 
-    const trimmedName = name.trim();
-
-    // Check if endpoint already exists
-    const existingEndpoint = await prisma.endpoint.findUnique({
-      where: { name: trimmedName }
-    });
-
-    if (existingEndpoint) {
+    if (label.trim().length > 100) {
       return NextResponse.json(
-        { error: 'Endpoint with this name already exists' },
-        { status: 409 }
+        { error: 'Endpoint label must be 100 characters or less' },
+        { status: 400 }
       );
     }
 
+    const trimmedLabel = label.trim();
+
     const endpoint = await prisma.endpoint.create({
-      data: { name: trimmedName },
+      data: { label: trimmedLabel },
       select: {
         id: true,
-        name: true,
+        token: true,
+        label: true,
         _count: {
           select: {
             reports: true,
@@ -121,7 +118,9 @@ export async function DELETE(request: NextRequest) {
     // Check if endpoint exists and get report count
     const endpoint = await prisma.endpoint.findUnique({
       where: { id: endpointId },
-      include: {
+      select: {
+        id: true,
+        label: true,
         _count: {
           select: {
             reports: true,
@@ -149,7 +148,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Endpoint "${endpoint.name}" and ${endpoint._count.reports} associated reports deleted successfully` 
+      message: `Endpoint "${endpoint.label}" and ${endpoint._count.reports} associated reports deleted successfully` 
     });
   } catch (error) {
     console.error('Error deleting endpoint:', error);

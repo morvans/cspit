@@ -15,8 +15,8 @@ interface ReportingAPIReport {
 // Type for Prisma client with dynamic access
 interface PrismaWithDynamicAccess {
   endpoint: {
-    findUnique: (args: { where: { name: string } }) => Promise<{ id: string; name: string } | null>;
-    create: (args: { data: { name: string } }) => Promise<{ id: string; name: string }>;
+    findUnique: (args: { where: { token: string } }) => Promise<{ id: string; token: string; label: string } | null>;
+    create: (args: { data: { label: string } }) => Promise<{ id: string; token: string; label: string }>;
   };
   cspReport: {
     create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }>;
@@ -43,12 +43,12 @@ export async function POST(
       // Find or create the endpoint
       const prismaTyped = prisma as unknown as PrismaWithDynamicAccess;
       let endpoint = await prismaTyped.endpoint.findUnique({
-        where: { name: endpointName }
+        where: { token: endpointName }
       });
 
       if (!endpoint) {
         endpoint = await prismaTyped.endpoint.create({
-          data: { name: endpointName }
+          data: { label: endpointName }
         });
       }
 
@@ -100,12 +100,12 @@ export async function POST(
     // Find or create the endpoint
     const prismaTyped = prisma as unknown as PrismaWithDynamicAccess;
     let endpoint = await prismaTyped.endpoint.findUnique({
-      where: { name: endpointName }
+      where: { token: endpointName }
     });
 
     if (!endpoint) {
       endpoint = await prismaTyped.endpoint.create({
-        data: { name: endpointName }
+        data: { label: endpointName }
       });
     }
 

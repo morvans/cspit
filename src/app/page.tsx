@@ -66,7 +66,8 @@ type Report = CspReport | GenericReport;
 
 interface Endpoint {
   id: string;
-  name: string;
+  token: string;
+  label: string;
   _count: {
     reports: number;
   };
@@ -234,7 +235,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: newEndpointName.trim() }),
+        body: JSON.stringify({ label: newEndpointName.trim() }),
       });
 
       if (!response.ok) {
@@ -400,18 +401,18 @@ export default function Home() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3">
                             <Badge variant="outline" className="font-mono">
-                              {endpoint.name}
+                              {endpoint.label}
                             </Badge>
                             <span className="text-sm text-muted-foreground">
                               {endpoint._count.reports} report{endpoint._count.reports !== 1 ? 's' : ''}
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            <code>POST /api/report/{endpoint.name}</code>
+                            <code>POST /api/report/{endpoint.token}</code>
                           </p>
                         </div>
                         <button
-                          onClick={() => deleteEndpoint(endpoint.id, endpoint.name)}
+                          onClick={() => deleteEndpoint(endpoint.id, endpoint.label)}
                           className="px-3 py-1 text-sm bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors"
                         >
                           Delete
@@ -450,14 +451,14 @@ export default function Home() {
                   {endpoints.map((endpoint) => (
                     <button
                       key={endpoint.id}
-                      onClick={() => setSelectedEndpoint(endpoint.name)}
+                      onClick={() => setSelectedEndpoint(endpoint.token)}
                       className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        selectedEndpoint === endpoint.name
+                        selectedEndpoint === endpoint.token
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                       }`}
                     >
-                      {endpoint.name} ({endpoint._count.reports})
+                      {endpoint.label} ({endpoint._count.reports})
                     </button>
                   ))}
                 </div>

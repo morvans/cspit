@@ -42,7 +42,8 @@ interface CspReport {
   source: string;
   endpoint: {
     id: string;
-    name: string;
+    token: string;
+    label: string;
   };
 }
 
@@ -58,7 +59,8 @@ interface GenericReport {
   source: string;
   endpoint: {
     id: string;
-    name: string;
+    token: string;
+    label: string;
   };
 }
 
@@ -583,7 +585,7 @@ export default function Home() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-mono">
-                        {report.endpoint.name}
+                        {report.endpoint.label}
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
@@ -643,7 +645,7 @@ export default function Home() {
                       <label className="text-sm font-medium">Endpoint</label>
                       <div className="mt-1">
                         <Badge variant="outline" className="font-mono">
-                          {selectedReport.endpoint.name}
+                          {selectedReport.endpoint.label}
                         </Badge>
                       </div>
                     </div>

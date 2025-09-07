@@ -17,18 +17,18 @@ interface TransformedReport {
   };
   // CSP-specific fields
   documentUri?: string;
-  referrer?: string;
+  referrer?: string | null;
   violatedDirective?: string;
   effectiveDirective?: string;
   originalPolicy?: string;
   disposition?: string;
-  blockedUri?: string;
-  lineNumber?: number;
-  columnNumber?: number;
-  sourceFile?: string;
-  statusCode?: number;
-  scriptSample?: string;
-  userAgent?: string;
+  blockedUri?: string | null;
+  lineNumber?: number | null;
+  columnNumber?: number | null;
+  sourceFile?: string | null;
+  statusCode?: number | null;
+  scriptSample?: string | null;
+  userAgent?: string | null;
   rawReport?: string;
   // Generic report fields
   type?: string;
@@ -71,11 +71,27 @@ export async function GET(request: NextRequest) {
       });
 
       // Transform CSP reports to have a consistent structure
-      const transformedCspReports = cspReports.map(report => ({
-        ...report,
+      const transformedCspReports: TransformedReport[] = cspReports.map(report => ({
+        id: report.id,
+        timestamp: report.timestamp,
         reportType: 'csp-violation',
-        source: 'legacy'
-      })) as TransformedReport[];
+        source: 'legacy',
+        endpoint: report.endpoint,
+        documentUri: report.documentUri,
+        referrer: report.referrer,
+        violatedDirective: report.violatedDirective,
+        effectiveDirective: report.effectiveDirective,
+        originalPolicy: report.originalPolicy,
+        disposition: report.disposition,
+        blockedUri: report.blockedUri,
+        lineNumber: report.lineNumber,
+        columnNumber: report.columnNumber,
+        sourceFile: report.sourceFile,
+        statusCode: report.statusCode,
+        scriptSample: report.scriptSample,
+        userAgent: report.userAgent,
+        rawReport: report.rawReport
+      }));
 
       allReports.push(...transformedCspReports);
     }

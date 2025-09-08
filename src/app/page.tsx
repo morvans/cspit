@@ -823,7 +823,7 @@ export default function Home() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl w-[90vw] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedReport && isCSPReport(selectedReport) ? 'CSP Violation Report Details' : 'Report Details'}

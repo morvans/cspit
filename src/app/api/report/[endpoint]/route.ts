@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+interface CSPReport {
+  'document-uri'?: string;
+  'violated-directive'?: string;
+  'effective-directive'?: string;
+  'original-policy'?: string;
+  disposition?: string;
+  referrer?: string;
+  'blocked-uri'?: string;
+  'line-number'?: number;
+  'column-number'?: number;
+  'source-file'?: string;
+  'status-code'?: number;
+  'script-sample'?: string;
+}
+
 
 export async function POST(
   request: NextRequest,
@@ -37,28 +53,29 @@ export async function POST(
     const userAgent = request.headers.get('user-agent') || undefined;
 
     // Create the report in the unified reports table
-    const reportData: any = {
+    const reportData = {
       type: 'csp-violation',
       endpointId: endpoint.id,
+      url: cspReport['document-uri'] || null, // Use document-uri as the URL for CSP reports
       
       // CSP-specific fields
-      documentUri: cspReport['document-uri'] || '',
-      violatedDirective: cspReport['violated-directive'] || '',
-      effectiveDirective: cspReport['effective-directive'] || '',
-      originalPolicy: cspReport['original-policy'] || '',
+      documentUri: cspReport['document-uri'] || null,
+      violatedDirective: cspReport['violated-directive'] || null,
+      effectiveDirective: cspReport['effective-directive'] || null,
+      originalPolicy: cspReport['original-policy'] || null,
       disposition: cspReport.disposition || 'enforce',
       rawReport: JSON.stringify(body, null, 2), // Store the complete raw request body
-    };
+    } as Prisma.ReportUncheckedCreateInput;
 
     // Add optional fields only if they have values
-    if (cspReport.referrer) reportData.referrer = cspReport.referrer;
-    if (cspReport['blocked-uri']) reportData.blockedUri = cspReport['blocked-uri'];
-    if (cspReport['line-number']) reportData.lineNumber = cspReport['line-number'];
-    if (cspReport['column-number']) reportData.columnNumber = cspReport['column-number'];
-    if (cspReport['source-file']) reportData.sourceFile = cspReport['source-file'];
-    if (cspReport['status-code']) reportData.statusCode = cspReport['status-code'];
-    if (cspReport['script-sample']) reportData.scriptSample = cspReport['script-sample'];
-    if (userAgent) reportData.userAgent = userAgent;
+    if (cspReport.referrer) (reportData as Record<string, unknown>).referrer = cspReport.referrer;
+    if (cspReport['blocked-uri']) (reportData as Record<string, unknown>).blockedUri = cspReport['blocked-uri'];
+    if (cspReport['line-number']) (reportData as Record<string, unknown>).lineNumber = cspReport['line-number'];
+    if (cspReport['column-number']) (reportData as Record<string, unknown>).columnNumber = cspReport['column-number'];
+    if (cspReport['source-file']) (reportData as Record<string, unknown>).sourceFile = cspReport['source-file'];
+    if (cspReport['status-code']) (reportData as Record<string, unknown>).statusCode = cspReport['status-code'];
+    if (cspReport['script-sample']) (reportData as Record<string, unknown>).scriptSample = cspReport['script-sample'];
+    if (userAgent) (reportData as Record<string, unknown>).userAgent = userAgent;
 
     const report = await prisma.report.create({
       data: reportData,

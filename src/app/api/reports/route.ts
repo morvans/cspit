@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { requireAuth } from '@/lib/auth';
 
 const prisma = new PrismaClient();
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build where clause for unified reports
-    const whereClause: any = {};
+    const whereClause: Prisma.ReportWhereInput = {};
     
     if (endpointFilter) {
       whereClause.endpoint = { token: endpointFilter };
@@ -93,34 +93,37 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform reports to match frontend expectations
-    const transformedReports = reports.map(report => ({
-      id: report.id,
-      timestamp: report.timestamp.toISOString(),
-      reportType: report.type,
-      source: report.type === 'csp-violation' ? 'legacy' : 'reporting-api',
-      endpoint: report.endpoint,
-      
-      // CSP-specific fields (will be null for non-CSP reports)
-      documentUri: report.documentUri,
-      referrer: report.referrer,
-      violatedDirective: report.violatedDirective,
-      effectiveDirective: report.effectiveDirective,
-      originalPolicy: report.originalPolicy,
-      disposition: report.disposition,
-      blockedUri: report.blockedUri,
-      lineNumber: report.lineNumber,
-      columnNumber: report.columnNumber,
-      sourceFile: report.sourceFile,
-      statusCode: report.statusCode,
-      scriptSample: report.scriptSample,
-      rawReport: report.rawReport,
-      
-      // Generic report fields (will be null for CSP reports)
-      url: report.url,
-      body: report.body,
-      age: report.age,
-      userAgent: report.userAgent,
-    }));
+    const transformedReports = reports.map(report => {
+      const reportData = report as Record<string, unknown>;
+      return {
+        id: report.id,
+        timestamp: report.timestamp.toISOString(),
+        reportType: report.type,
+        source: report.type === 'csp-violation' ? 'legacy' : 'reporting-api',
+        endpoint: report.endpoint,
+        
+        // CSP-specific fields (will be null for non-CSP reports)
+        documentUri: reportData.documentUri as string | null,
+        referrer: reportData.referrer as string | null,
+        violatedDirective: reportData.violatedDirective as string | null,
+        effectiveDirective: reportData.effectiveDirective as string | null,
+        originalPolicy: reportData.originalPolicy as string | null,
+        disposition: reportData.disposition as string | null,
+        blockedUri: reportData.blockedUri as string | null,
+        lineNumber: reportData.lineNumber as number | null,
+        columnNumber: reportData.columnNumber as number | null,
+        sourceFile: reportData.sourceFile as string | null,
+        statusCode: reportData.statusCode as number | null,
+        scriptSample: reportData.scriptSample as string | null,
+        rawReport: reportData.rawReport as string | null,
+        
+        // Generic report fields (will be null for CSP reports)
+        url: report.url,
+        body: report.body,
+        age: report.age,
+        userAgent: report.userAgent,
+      };
+    });
 
     // Calculate counts by type
     const cspCount = await prisma.report.count({

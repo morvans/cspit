@@ -137,7 +137,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete all reports associated with this endpoint first
-    await prisma.cspReport.deleteMany({
+    await prisma.report.deleteMany({
       where: { endpointId: endpointId }
     });
 

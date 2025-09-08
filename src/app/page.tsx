@@ -91,6 +91,12 @@ export default function Home() {
   const [newEndpointName, setNewEndpointName] = useState('');
   const [isCreatingEndpoint, setIsCreatingEndpoint] = useState(false);
   const [endpointError, setEndpointError] = useState<string | null>(null);
+  
+  // Pagination and filtering state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [timeRange, setTimeRange] = useState('last_1h');
+  const [totalPages, setTotalPages] = useState(0);
 
   const fetchEndpoints = useCallback(async () => {
     try {
@@ -115,7 +121,12 @@ export default function Home() {
         params.append('type', selectedReportType);
       }
       
-      const url = `/api/reports${params.toString() ? '?' + params.toString() : ''}`;
+      // Add pagination and time filter parameters
+      params.append('page', currentPage.toString());
+      params.append('limit', itemsPerPage.toString());
+      params.append('timeRange', timeRange);
+      
+      const url = `/api/reports?${params.toString()}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch reports');
@@ -126,6 +137,7 @@ export default function Home() {
       if (Array.isArray(data)) {
         setReports(data);
         setReportStats({ totalCount: data.length, cspCount: data.length, genericCount: 0 });
+        setTotalPages(1);
       } else {
         setReports(data.reports || []);
         setReportStats({
@@ -133,13 +145,14 @@ export default function Home() {
           cspCount: data.cspCount || 0,
           genericCount: data.genericCount || 0
         });
+        setTotalPages(data.totalPages || 1);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
-  }, [selectedEndpoint, selectedReportType]);
+  }, [selectedEndpoint, selectedReportType, currentPage, itemsPerPage, timeRange]);
 
   // Redirect to sign-in if not authenticated
   useEffect(() => {
@@ -454,7 +467,10 @@ export default function Home() {
                 <h3 className="font-medium mb-2">Filter by Endpoint</h3>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSelectedEndpoint('')}
+                    onClick={() => {
+                      setSelectedEndpoint('');
+                      setCurrentPage(1);
+                    }}
                     className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       selectedEndpoint === ''
                         ? 'bg-primary text-primary-foreground'
@@ -466,7 +482,10 @@ export default function Home() {
                   {endpoints.map((endpoint) => (
                     <button
                       key={endpoint.id}
-                      onClick={() => setSelectedEndpoint(endpoint.token)}
+                      onClick={() => {
+                        setSelectedEndpoint(endpoint.token);
+                        setCurrentPage(1);
+                      }}
                       className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                         selectedEndpoint === endpoint.token
                           ? 'bg-primary text-primary-foreground'
@@ -484,7 +503,10 @@ export default function Home() {
                 <h3 className="font-medium mb-2">Filter by Report Type</h3>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSelectedReportType('all')}
+                    onClick={() => {
+                      setSelectedReportType('all');
+                      setCurrentPage(1);
+                    }}
                     className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       selectedReportType === 'all'
                         ? 'bg-primary text-primary-foreground'
@@ -494,7 +516,10 @@ export default function Home() {
                     All Types ({reportStats.totalCount})
                   </button>
                   <button
-                    onClick={() => setSelectedReportType('csp')}
+                    onClick={() => {
+                      setSelectedReportType('csp');
+                      setCurrentPage(1);
+                    }}
                     className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       selectedReportType === 'csp'
                         ? 'bg-primary text-primary-foreground'
@@ -504,7 +529,10 @@ export default function Home() {
                     CSP Reports ({reportStats.cspCount})
                   </button>
                   <button
-                    onClick={() => setSelectedReportType('generic')}
+                    onClick={() => {
+                      setSelectedReportType('generic');
+                      setCurrentPage(1);
+                    }}
                     className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       selectedReportType === 'generic'
                         ? 'bg-primary text-primary-foreground'
@@ -512,6 +540,91 @@ export default function Home() {
                     }`}
                   >
                     Generic Reports ({reportStats.genericCount})
+                  </button>
+                </div>
+              </div>
+
+              {/* Time Range Filter */}
+              <div>
+                <h3 className="font-medium mb-2">Filter by Time Range</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      setTimeRange('last_30m');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timeRange === 'last_30m'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Last 30 min
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeRange('last_1h');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timeRange === 'last_1h'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Last 1 hour
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeRange('last_24h');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timeRange === 'last_24h'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Last 24 hours
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeRange('last_7d');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timeRange === 'last_7d'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Last 7 days
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeRange('last_30d');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timeRange === 'last_30d'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    Last 30 days
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeRange('all');
+                      setCurrentPage(1);
+                    }}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      timeRange === 'all'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    All time
                   </button>
                 </div>
               </div>
@@ -570,65 +683,141 @@ export default function Home() {
               No CSP violations reported yet.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Endpoint</TableHead>
-                  <TableHead>URL/Document</TableHead>
-                  <TableHead>Blocked URI</TableHead>
-                  <TableHead>Details</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {reports.map((report) => (
-                  <TableRow 
-                    key={report.id} 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleRowClick(report)}
-                  >
-                    <TableCell className="font-mono text-sm">
-                      {formatTimestamp(report.timestamp)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getReportTypeColor(report.reportType)}>
-                        {report.reportType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono">
-                        {report.endpoint.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {isCSPReport(report) ? report.documentUri : report.url}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {isCSPReport(report) ? formatBlockedUri(report.blockedUri) : '-'}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {isCSPReport(report) 
-                        ? report.violatedDirective 
-                        : (report.body ? JSON.stringify(report.body).substring(0, 50) + '...' : '-')
-                      }
-                    </TableCell>
-                    <TableCell>
-                      {isCSPReport(report) ? (
-                        <Badge variant={getDispositionColor(report.disposition)}>
-                          {report.disposition}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">
-                          {report.source}
-                        </Badge>
-                      )}
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Endpoint</TableHead>
+                    <TableHead>URL/Document</TableHead>
+                    <TableHead>Blocked URI</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {reports.map((report) => (
+                    <TableRow 
+                      key={report.id} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleRowClick(report)}
+                    >
+                      <TableCell className="font-mono text-sm">
+                        {formatTimestamp(report.timestamp)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getReportTypeColor(report.reportType)}>
+                          {report.reportType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono">
+                          {report.endpoint.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {isCSPReport(report) ? report.documentUri : report.url}
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {isCSPReport(report) ? formatBlockedUri(report.blockedUri) : '-'}
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {isCSPReport(report) 
+                          ? report.violatedDirective 
+                          : (report.body ? JSON.stringify(report.body).substring(0, 50) + '...' : '-')
+                        }
+                      </TableCell>
+                      <TableCell>
+                        {isCSPReport(report) ? (
+                          <Badge variant={getDispositionColor(report.disposition)}>
+                            {report.disposition}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            {report.source}
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* Pagination and Items Per Page Controls */}
+              <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Items per page:</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="px-2 py-1 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={200}>200</option>
+                    </select>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, reportStats.totalCount)} of {reportStats.totalCount} results
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage <= 1}
+                    className="px-3 py-1 text-sm border border-input rounded-md bg-background text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {/* Show page numbers */}
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-3 py-1 text-sm border border-input rounded-md transition-colors ${
+                            currentPage === pageNum
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-background text-foreground hover:bg-accent hover:text-accent-foreground'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="px-3 py-1 text-sm border border-input rounded-md bg-background text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

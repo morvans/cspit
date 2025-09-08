@@ -222,6 +222,19 @@ export default function Home() {
     }
   };
 
+  const formatBlockedUri = (blockedUri?: string) => {
+    if (!blockedUri) return '-';
+    
+    // Check if it's a regular URL
+    try {
+      const url = new URL(blockedUri);
+      return url.hostname;
+    } catch {
+      // If it's not a valid URL (e.g., 'inline-script', 'eval', etc.), return the full URI
+      return blockedUri;
+    }
+  };
+
   const createEndpoint = async () => {
     if (!newEndpointName.trim()) {
       setEndpointError('Endpoint name is required');
@@ -564,6 +577,7 @@ export default function Home() {
                   <TableHead>Type</TableHead>
                   <TableHead>Endpoint</TableHead>
                   <TableHead>URL/Document</TableHead>
+                  <TableHead>Blocked URI</TableHead>
                   <TableHead>Details</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -590,6 +604,9 @@ export default function Home() {
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
                       {isCSPReport(report) ? report.documentUri : report.url}
+                    </TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {isCSPReport(report) ? formatBlockedUri(report.blockedUri) : '-'}
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
                       {isCSPReport(report) 

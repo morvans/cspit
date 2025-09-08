@@ -18,9 +18,6 @@ interface PrismaWithDynamicAccess {
     findUnique: (args: { where: { token: string } }) => Promise<{ id: string; token: string; label: string } | null>;
     create: (args: { data: { label: string } }) => Promise<{ id: string; token: string; label: string }>;
   };
-  cspReport: {
-    create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }>;
-  };
   report: {
     create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }>;
   };
@@ -54,8 +51,9 @@ export async function POST(
       }
 
       // Create the legacy CSP report
-      const report = await prismaTyped.cspReport.create({
+      const report = await prismaTyped.report.create({
         data: {
+          type: 'csp-violation',
           documentUri: cspReport['document-uri'] || '',
           referrer: cspReport.referrer || undefined,
           violatedDirective: cspReport['violated-directive'] || '',

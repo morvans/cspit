@@ -410,7 +410,7 @@ export default function Home() {
                 {newEndpointName.trim() && (
                   <p className="text-sm text-muted-foreground mt-2">
                     API URL: <code className="bg-muted px-1 py-0.5 rounded text-xs">
-                      POST /api/report/{newEndpointName.trim()}
+                      POST /api/v1/report/{newEndpointName.trim()}
                     </code>
                   </p>
                 )}
@@ -436,7 +436,7 @@ export default function Home() {
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            <code>POST /api/report/{endpoint.token}</code>
+                            <code>POST /api/v1/report/{endpoint.token}</code>
                           </p>
                         </div>
                         <button

@@ -15,23 +15,24 @@ export async function GET() {
       );
     }
 
-    const endpoints = await prisma.endpoint.findMany({
-      select: {
-        id: true,
-        token: true,
-        label: true,
-        _count: {
-          select: {
-            reports: true,
-          },
-        },
-      },
-      orderBy: {
-        label: 'asc',
-      },
-    });
+    const [endpoints, reportCounts] = await Promise.all([
+      prisma.endpoint.findMany({
+        select: { id: true, token: true, label: true },
+        orderBy: { label: 'asc' },
+      }),
+      prisma.report.groupBy({
+        by: ['endpointId'],
+        _count: { _all: true },
+      }),
+    ]);
 
-    return NextResponse.json(endpoints);
+    const countMap = new Map(reportCounts.map(c => [c.endpointId, c._count._all]));
+    const result = endpoints.map(e => ({
+      ...e,
+      _count: { reports: countMap.get(e.id) ?? 0 },
+    }));
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching endpoints:', error);
     return NextResponse.json(
@@ -72,19 +73,10 @@ export async function POST(request: NextRequest) {
 
     const endpoint = await prisma.endpoint.create({
       data: { label: trimmedLabel },
-      select: {
-        id: true,
-        token: true,
-        label: true,
-        _count: {
-          select: {
-            reports: true,
-          },
-        },
-      },
+      select: { id: true, token: true, label: true },
     });
 
-    return NextResponse.json(endpoint, { status: 201 });
+    return NextResponse.json({ ...endpoint, _count: { reports: 0 } }, { status: 201 });
   } catch (error) {
     console.error('Error creating endpoint:', error);
     return NextResponse.json(
@@ -116,18 +108,13 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if endpoint exists and get report count
-    const endpoint = await prisma.endpoint.findUnique({
-      where: { id: endpointId },
-      select: {
-        id: true,
-        label: true,
-        _count: {
-          select: {
-            reports: true,
-          },
-        },
-      },
-    });
+    const [endpoint, reportCount] = await Promise.all([
+      prisma.endpoint.findUnique({
+        where: { id: endpointId },
+        select: { id: true, label: true },
+      }),
+      prisma.report.count({ where: { endpointId } }),
+    ]);
 
     if (!endpoint) {
       return NextResponse.json(
@@ -148,7 +135,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Endpoint "${endpoint.label}" and ${endpoint._count.reports} associated reports deleted successfully` 
+      message: `Endpoint "${endpoint.label}" and ${reportCount} associated reports deleted successfully`
     });
   } catch (error) {
     console.error('Error deleting endpoint:', error);

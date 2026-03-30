@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     
     // Pagination parameters
     const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
     const skip = (page - 1) * limit;
     
     // Time filter parameter
@@ -52,44 +52,55 @@ export async function GET(request: NextRequest) {
         break;
     }
 
-    // Build where clause for unified reports
-    const whereClause: Prisma.ReportWhereInput = {};
-    
+    // Base where clause (no type filter) — used for per-type counts
+    const baseWhereClause: Prisma.ReportWhereInput = {};
+
     if (endpointFilter) {
-      whereClause.endpoint = { token: endpointFilter };
+      baseWhereClause.endpoint = { token: endpointFilter };
     }
-    
+
     if (timeFilter) {
-      whereClause.timestamp = { gte: timeFilter };
+      baseWhereClause.timestamp = { gte: timeFilter };
     }
-    
-    // Add report type filter
+
+    // Full where clause with optional type filter — used for the paginated query
+    const whereClause: Prisma.ReportWhereInput = { ...baseWhereClause };
+
     if (reportType === 'csp') {
       whereClause.type = 'csp-violation';
     } else if (reportType === 'generic') {
       whereClause.type = { not: 'csp-violation' };
     }
-    // If reportType is 'all' or undefined, don't add type filter
 
-    // Get total count for pagination
-    const totalCount = await prisma.report.count({
-      where: whereClause,
-    });
+    // Run data fetch and type-count aggregation in parallel
+    const [reports, typeCounts] = await Promise.all([
+      prisma.report.findMany({
+        where: whereClause,
+        include: { endpoint: true },
+        orderBy: { timestamp: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.report.groupBy({
+        by: ['type'],
+        where: baseWhereClause,
+        _count: { _all: true },
+      }),
+    ]);
+
+    // Derive counts from the single aggregation result
+    const cspCount = typeCounts.find(c => c.type === 'csp-violation')?._count._all ?? 0;
+    const genericCount = typeCounts
+      .filter(c => c.type !== 'csp-violation')
+      .reduce((sum, c) => sum + c._count._all, 0);
+    const allCount = cspCount + genericCount;
+
+    const totalCount =
+      reportType === 'csp' ? cspCount :
+      reportType === 'generic' ? genericCount :
+      allCount;
 
     const totalPages = Math.ceil(totalCount / limit);
-
-    // Fetch reports with pagination
-    const reports = await prisma.report.findMany({
-      where: whereClause,
-      include: {
-        endpoint: true,
-      },
-      orderBy: {
-        timestamp: 'desc',
-      },
-      skip,
-      take: limit,
-    });
 
     // Transform reports to match frontend expectations
     const transformedReports = reports.map(report => {
@@ -122,21 +133,6 @@ export async function GET(request: NextRequest) {
         age: report.age,
         userAgent: report.userAgent,
       };
-    });
-
-    // Calculate counts by type
-    const cspCount = await prisma.report.count({
-      where: {
-        ...whereClause,
-        type: 'csp-violation'
-      }
-    });
-
-    const genericCount = await prisma.report.count({
-      where: {
-        ...whereClause,
-        type: { not: 'csp-violation' }
-      }
     });
 
     return NextResponse.json({

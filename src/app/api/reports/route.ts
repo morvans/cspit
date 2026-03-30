@@ -76,7 +76,28 @@ export async function GET(request: NextRequest) {
     const [reports, typeCounts] = await Promise.all([
       prisma.report.findMany({
         where: whereClause,
-        include: { endpoint: true },
+        select: {
+          id: true,
+          type: true,
+          timestamp: true,
+          url: true,
+          userAgent: true,
+          body: true,
+          age: true,
+          documentUri: true,
+          referrer: true,
+          violatedDirective: true,
+          effectiveDirective: true,
+          disposition: true,
+          blockedUri: true,
+          lineNumber: true,
+          columnNumber: true,
+          sourceFile: true,
+          statusCode: true,
+          scriptSample: true,
+          endpoint: { select: { id: true, token: true, label: true } },
+          // rawReport and originalPolicy excluded — loaded on-demand via GET /api/reports/[id]
+        },
         orderBy: { timestamp: 'desc' },
         skip,
         take: limit,
@@ -103,37 +124,33 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil(totalCount / limit);
 
     // Transform reports to match frontend expectations
-    const transformedReports = reports.map(report => {
-      const reportData = report as Record<string, unknown>;
-      return {
-        id: report.id,
-        timestamp: report.timestamp.toISOString(),
-        reportType: report.type,
-        source: report.type === 'csp-violation' ? 'legacy' : 'reporting-api',
-        endpoint: report.endpoint,
-        
-        // CSP-specific fields (will be null for non-CSP reports)
-        documentUri: reportData.documentUri as string | null,
-        referrer: reportData.referrer as string | null,
-        violatedDirective: reportData.violatedDirective as string | null,
-        effectiveDirective: reportData.effectiveDirective as string | null,
-        originalPolicy: reportData.originalPolicy as string | null,
-        disposition: reportData.disposition as string | null,
-        blockedUri: reportData.blockedUri as string | null,
-        lineNumber: reportData.lineNumber as number | null,
-        columnNumber: reportData.columnNumber as number | null,
-        sourceFile: reportData.sourceFile as string | null,
-        statusCode: reportData.statusCode as number | null,
-        scriptSample: reportData.scriptSample as string | null,
-        rawReport: reportData.rawReport as string | null,
-        
-        // Generic report fields (will be null for CSP reports)
-        url: report.url,
-        body: report.body,
-        age: report.age,
-        userAgent: report.userAgent,
-      };
-    });
+    const transformedReports = reports.map(report => ({
+      id: report.id,
+      timestamp: report.timestamp.toISOString(),
+      reportType: report.type,
+      source: report.type === 'csp-violation' ? 'legacy' : 'reporting-api',
+      endpoint: report.endpoint,
+
+      // CSP-specific fields (null for non-CSP reports)
+      documentUri: report.documentUri,
+      referrer: report.referrer,
+      violatedDirective: report.violatedDirective,
+      effectiveDirective: report.effectiveDirective,
+      disposition: report.disposition,
+      blockedUri: report.blockedUri,
+      lineNumber: report.lineNumber,
+      columnNumber: report.columnNumber,
+      sourceFile: report.sourceFile,
+      statusCode: report.statusCode,
+      scriptSample: report.scriptSample,
+      // originalPolicy and rawReport omitted — fetched on-demand via GET /api/reports/[id]
+
+      // Generic report fields (null for CSP reports)
+      url: report.url,
+      body: report.body,
+      age: report.age,
+      userAgent: report.userAgent,
+    }));
 
     return NextResponse.json({
       reports: transformedReports,

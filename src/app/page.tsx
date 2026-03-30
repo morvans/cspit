@@ -27,7 +27,6 @@ interface CspReport {
   referrer?: string;
   violatedDirective: string;
   effectiveDirective: string;
-  originalPolicy: string;
   disposition: string;
   blockedUri?: string;
   lineNumber?: number;
@@ -36,7 +35,6 @@ interface CspReport {
   statusCode?: number;
   scriptSample?: string;
   userAgent?: string;
-  rawReport: string;
   timestamp: string;
   reportType: string;
   source: string;
@@ -45,6 +43,11 @@ interface CspReport {
     token: string;
     label: string;
   };
+}
+
+interface ReportDetail {
+  originalPolicy: string | null;
+  rawReport: string | null;
 }
 
 interface GenericReport {
@@ -87,6 +90,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [showEndpointManager, setShowEndpointManager] = useState(false);
   const [newEndpointName, setNewEndpointName] = useState('');
   const [isCreatingEndpoint, setIsCreatingEndpoint] = useState(false);
@@ -210,12 +215,20 @@ export default function Home() {
 
   const handleRowClick = (report: Report) => {
     setSelectedReport(report);
+    setReportDetail(null);
     setIsDialogOpen(true);
+    setDetailLoading(true);
+    fetch(`/api/reports/${report.id}`)
+      .then(res => res.json())
+      .then((data: ReportDetail) => setReportDetail(data))
+      .catch(() => setReportDetail({ originalPolicy: null, rawReport: null }))
+      .finally(() => setDetailLoading(false));
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setSelectedReport(null);
+    setReportDetail(null);
   };
 
   const isCSPReport = (report: Report): report is CspReport => {
@@ -929,9 +942,12 @@ export default function Home() {
                   <h3 className="font-semibold text-sm text-muted-foreground mb-2">POLICY</h3>
                   <div>
                     <label className="text-sm font-medium">Original Policy</label>
-                    <code className="block bg-muted px-3 py-2 rounded text-sm mt-1 whitespace-pre-wrap">
-                      {selectedReport.originalPolicy}
-                    </code>
+                    {detailLoading
+                      ? <p className="text-sm text-muted-foreground mt-1 animate-pulse">Loading…</p>
+                      : <code className="block bg-muted px-3 py-2 rounded text-sm mt-1 whitespace-pre-wrap">
+                          {reportDetail?.originalPolicy}
+                        </code>
+                    }
                   </div>
                 </div>
               )}
@@ -998,12 +1014,15 @@ export default function Home() {
                   <label className="text-sm font-medium">
                     {isCSPReport(selectedReport) ? 'Complete Raw CSP Report' : 'Complete Report Data'}
                   </label>
-                  <pre className="block bg-muted px-3 py-2 rounded text-xs mt-1 whitespace-pre-wrap overflow-x-auto max-h-60 border">
-                    {isCSPReport(selectedReport) 
-                      ? selectedReport.rawReport 
-                      : JSON.stringify(selectedReport, null, 2)
-                    }
-                  </pre>
+                  {isCSPReport(selectedReport) && detailLoading
+                    ? <p className="text-sm text-muted-foreground mt-1 animate-pulse">Loading…</p>
+                    : <pre className="block bg-muted px-3 py-2 rounded text-xs mt-1 whitespace-pre-wrap overflow-x-auto max-h-60 border">
+                        {isCSPReport(selectedReport)
+                          ? reportDetail?.rawReport
+                          : JSON.stringify(selectedReport, null, 2)
+                        }
+                      </pre>
+                  }
                 </div>
               </div>
             </div>

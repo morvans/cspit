@@ -168,20 +168,15 @@ export default function Home() {
     }
   }, [session, status, router]);
 
-  // Fetch data when component mounts and user is authenticated
+  // Fetch endpoints once when authenticated
   useEffect(() => {
-    if (session) {
-      fetchEndpoints();
-      fetchReports();
-    }
-  }, [session, fetchEndpoints, fetchReports]);
+    if (session) fetchEndpoints();
+  }, [session, fetchEndpoints]);
 
-  // Fetch reports when selected endpoint or report type changes
+  // Fetch reports on mount and whenever filters/pagination change
   useEffect(() => {
-    if (session) {
-      fetchReports();
-    }
-  }, [fetchReports, session]);
+    if (session) fetchReports();
+  }, [session, fetchReports]);
 
   // Show loading while session is being checked
   if (status === 'loading') {

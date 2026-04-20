@@ -12,12 +12,18 @@ export const authOptions = {
     }),
   ],
   session: {
-    strategy: 'database' as const,
+    strategy: 'jwt' as const,
   },
   callbacks: {
-    session: async ({ session, user }: { session: { user?: { id?: string; name?: string | null; email?: string | null; image?: string | null }; expires: string }; user: { id: string } }) => {
+    jwt: async ({ token, user }: { token: { sub?: string; id?: string }, user?: { id: string } }) => {
+      if (user) {
+        token.id = user.id
+      }
+      return token
+    },
+    session: async ({ session, token }: { session: { user?: { id?: string; name?: string | null; email?: string | null; image?: string | null }; expires: string }; token: { id?: string } }) => {
       if (session?.user) {
-        session.user.id = user.id
+        session.user.id = token.id
       }
       return session
     },

@@ -72,8 +72,8 @@ export async function GET(request: NextRequest) {
       whereClause.type = { not: 'csp-violation' };
     }
 
-    // Run data fetch and type-count aggregation in parallel
-    const [reports, typeCounts] = await Promise.all([
+    // Run data fetch and type counts in parallel
+    const [reports, cspCount, allCount] = await Promise.all([
       prisma.report.findMany({
         where: whereClause,
         select: {
@@ -102,19 +102,11 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
       }),
-      prisma.report.groupBy({
-        by: ['type'],
-        where: baseWhereClause,
-        _count: { _all: true },
-      }),
+      prisma.report.count({ where: { ...baseWhereClause, type: 'csp-violation' } }),
+      prisma.report.count({ where: baseWhereClause }),
     ]);
 
-    // Derive counts from the single aggregation result
-    const cspCount = typeCounts.find(c => c.type === 'csp-violation')?._count._all ?? 0;
-    const genericCount = typeCounts
-      .filter(c => c.type !== 'csp-violation')
-      .reduce((sum, c) => sum + c._count._all, 0);
-    const allCount = cspCount + genericCount;
+    const genericCount = allCount - cspCount;
 
     const totalCount =
       reportType === 'csp' ? cspCount :

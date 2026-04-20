@@ -51,8 +51,10 @@ model Report {
   endpoint   Endpoint @relation(fields: [endpointId], references: [id])
   endpointId String   @db.ObjectId
 
+  @@index([timestamp])
   @@index([endpointId, timestamp])
   @@index([type, timestamp])
+  @@index([endpointId, type, timestamp])
   @@map("reports")
 }
 

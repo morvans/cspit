@@ -13,21 +13,14 @@ export async function GET() {
       );
     }
 
-    const [endpoints, reportCounts] = await Promise.all([
-      prisma.endpoint.findMany({
-        select: { id: true, token: true, label: true },
-        orderBy: { label: 'asc' },
-      }),
-      prisma.report.groupBy({
-        by: ['endpointId'],
-        _count: { _all: true },
-      }),
-    ]);
+    const endpoints = await prisma.endpoint.findMany({
+      select: { id: true, token: true, label: true, reportCount: true },
+      orderBy: { label: 'asc' },
+    });
 
-    const countMap = new Map(reportCounts.map(c => [c.endpointId, c._count._all]));
-    const result = endpoints.map(e => ({
+    const result = endpoints.map(({ reportCount, ...e }) => ({
       ...e,
-      _count: { reports: countMap.get(e.id) ?? 0 },
+      _count: { reports: reportCount },
     }));
 
     return NextResponse.json(result);

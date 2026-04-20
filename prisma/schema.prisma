@@ -12,11 +12,12 @@ datasource db {
 }
 
 model Endpoint {
-  id      String   @id @default(auto()) @map("_id") @db.ObjectId
-  token   String   @unique @default(cuid())
-  label   String
-  reports Report[]
-  
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  token       String   @unique @default(cuid())
+  label       String
+  reportCount Int      @default(0)
+  reports     Report[]
+
   @@map("endpoints")
 }
 

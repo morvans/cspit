@@ -76,9 +76,13 @@ export async function POST(
     if (cspReport['script-sample']) (reportData as Record<string, unknown>).scriptSample = cspReport['script-sample'];
     if (userAgent) (reportData as Record<string, unknown>).userAgent = userAgent;
 
-    const report = await prisma.report.create({
-      data: reportData,
-    });
+    const [report] = await Promise.all([
+      prisma.report.create({ data: reportData }),
+      prisma.endpoint.update({
+        where: { id: endpoint.id },
+        data: { reportCount: { increment: 1 } },
+      }),
+    ]);
 
     return NextResponse.json({ success: true, id: report.id, endpoint: endpointName }, { status: 201 });
   } catch (error) {

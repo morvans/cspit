@@ -49,30 +49,36 @@ export async function POST(
       }
 
       // Create the legacy CSP report
-      const report = await prismaTyped.report.create({
-        data: {
-          type: 'csp-violation',
-          documentUri: cspReport['document-uri'] || '',
-          referrer: cspReport.referrer || undefined,
-          violatedDirective: cspReport['violated-directive'] || '',
-          effectiveDirective: cspReport['effective-directive'] || '',
-          originalPolicy: cspReport['original-policy'] || '',
-          disposition: cspReport.disposition || 'enforce',
-          blockedUri: cspReport['blocked-uri'] || undefined,
-          lineNumber: cspReport['line-number'] || undefined,
-          columnNumber: cspReport['column-number'] || undefined,
-          sourceFile: cspReport['source-file'] || undefined,
-          statusCode: cspReport['status-code'] || undefined,
-          scriptSample: cspReport['script-sample'] || undefined,
-          userAgent,
-          rawReport: JSON.stringify(body, null, 2),
-          endpointId: endpoint.id,
-        },
-      });
+      const [report] = await Promise.all([
+        prismaTyped.report.create({
+          data: {
+            type: 'csp-violation',
+            documentUri: cspReport['document-uri'] || '',
+            referrer: cspReport.referrer || undefined,
+            violatedDirective: cspReport['violated-directive'] || '',
+            effectiveDirective: cspReport['effective-directive'] || '',
+            originalPolicy: cspReport['original-policy'] || '',
+            disposition: cspReport.disposition || 'enforce',
+            blockedUri: cspReport['blocked-uri'] || undefined,
+            lineNumber: cspReport['line-number'] || undefined,
+            columnNumber: cspReport['column-number'] || undefined,
+            sourceFile: cspReport['source-file'] || undefined,
+            statusCode: cspReport['status-code'] || undefined,
+            scriptSample: cspReport['script-sample'] || undefined,
+            userAgent,
+            rawReport: JSON.stringify(body, null, 2),
+            endpointId: endpoint.id,
+          },
+        }),
+        prisma.endpoint.update({
+          where: { id: endpoint.id },
+          data: { reportCount: { increment: 1 } },
+        }),
+      ]);
 
-      return NextResponse.json({ 
-        success: true, 
-        id: report.id, 
+      return NextResponse.json({
+        success: true,
+        id: report.id,
         endpoint: endpointName,
         format: 'legacy-csp'
       }, { status: 201 });
@@ -137,8 +143,15 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    if (createdReports.length > 0) {
+      await prisma.endpoint.update({
+        where: { id: endpoint.id },
+        data: { reportCount: { increment: createdReports.length } },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
       endpoint: endpointName,
       reportsProcessed: createdReports.length,
       totalReports: reportsArray.length,

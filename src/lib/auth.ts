@@ -1,4 +1,6 @@
 import { getServerSession } from 'next-auth/next'
+import type { Session } from 'next-auth'
+import type { JWT } from 'next-auth/jwt'
 import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import prisma from './prisma'
@@ -15,15 +17,15 @@ export const authOptions = {
     strategy: 'jwt' as const,
   },
   callbacks: {
-    jwt: async ({ token, user }: { token: { sub?: string; id?: string }, user?: { id: string } }) => {
+    jwt: async ({ token, user }: { token: JWT; user?: { id: string } }) => {
       if (user) {
         token.id = user.id
       }
       return token
     },
-    session: async ({ session, token }: { session: { user?: { id?: string; name?: string | null; email?: string | null; image?: string | null }; expires: string }; token: { id?: string } }) => {
+    session: async ({ session, token }: { session: Session; token: JWT }) => {
       if (session?.user) {
-        session.user.id = token.id
+        (session.user as { id?: string }).id = token.id as string | undefined
       }
       return session
     },

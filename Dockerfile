@@ -12,7 +12,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-# Stage 3: production runner
+# Stage 3: migrate — full node_modules for Prisma CLI (db push, etc.)
+FROM node:18-alpine AS migrate
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY prisma ./prisma
+
+# Stage 4: production runner
 FROM node:18-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -23,12 +29,6 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Include prisma schema and CLI so migrations can be run against the production DB
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-RUN mkdir -p /app/node_modules/.bin && ln -sf /app/node_modules/prisma/build/index.js /app/node_modules/.bin/prisma
 
 USER nextjs
 EXPOSE 3000

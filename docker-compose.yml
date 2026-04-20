@@ -23,7 +23,7 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--wiredTigerCacheSizeGB", "2"]
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -36,9 +36,18 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
-    entrypoint: >
-      mongosh --host mongo:27017 --eval
-      "rs.status().ok || rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]})"
+    entrypoint: |
+      sh -c '
+      mongosh --host mongo:27017 --eval "
+        try {
+          if (rs.status().ok !== 1) {
+            rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"mongo:27017\"}]});
+          }
+        } catch (e) {
+          rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"mongo:27017\"}]});
+        }
+      "
+      '
 
 volumes:
   mongo_data:
